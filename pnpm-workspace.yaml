@@ -1,0 +1,16 @@
+packages:
+  - packages/*
+  - apps/*
+allowBuilds:
+  msgpackr-extract: true
+catalogs:
+  cli:
+    empathic: ^2.0.1
+    fast-glob: ^3.3.3
+    parsinator: ^2.1.2
+  core:
+    '@effect/platform-node': 4.0.0-beta.107
+    '@total-typescript/tsconfig': ^1.0.4
+    '@types/node': ^26.4.0
+    effect: 4.0.0-beta.107
+    typescript: ^7.0.2

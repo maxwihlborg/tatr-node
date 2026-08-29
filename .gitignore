@@ -1,0 +1,21 @@
+# Artifacts
+.turbo
+.vercel
+.context
+.pnpm-store
+.direnv
+
+# Editor directories
+.idea
+.claude/*.local*
+
+# Node
+node_modules
+
+# Misc
+.DS_Store
+*.pem
+*.log
+
+# Typescript
+*.tsbuildinfo
