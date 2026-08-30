@@ -188,8 +188,15 @@ export function surround<A>(open: Top, parser: Parser<A>, close: Top): Parser<A>
   });
 }
 
-export function lazy<A>(fn: LazyArg<Parser<A>>): Parser<A> {
-  return make((input, index) => fn().parse(input, index));
+export function suspend<A>(fn: LazyArg<Parser<A>>): Parser<A> {
+  let parser = Option.none<Parser<A>>();
+  return make((input, index) =>
+    Option.getOrElse(parser, () => {
+      const p = fn();
+      parser = Option.some(p);
+      return p;
+    }).parse(input, index),
+  );
 }
 
 export function tuple<const T extends readonly Top[]>(
@@ -331,7 +338,7 @@ export function buildExpressionParser<T>(
       : Result.failVoid;
   });
 
-  const lazyTerm = lazy(termFactory);
+  const lazyTerm = suspend(termFactory);
   const parsePrecCache = new Map<number, Parser<T>>();
 
   function parsePrec(minPrec: number): Parser<T> {
