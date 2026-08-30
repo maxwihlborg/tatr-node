@@ -1,24 +1,26 @@
 {
   "name": "@tatr/cli",
+  "version": "1.1.0",
   "private": true,
   "bin": {
     "tatr": "./bin/tatr.js"
   },
   "type": "module",
   "scripts": {
-    "build": "rimraf dist && tsc",
-    "watch": "tsc --watch"
-  },
-  "dependencies": {
-    "@effect/platform-node": "catalog:core",
-    "colorette": "^2.0.20",
-    "effect": "catalog:core",
-    "empathic": "catalog:cli",
-    "fast-glob": "catalog:cli"
+    "build": "tsc && rolldown -c",
+    "watch": "rolldown -c --no-minify --watch"
   },
   "devDependencies": {
+    "@effect/platform-node": "catalog:core",
+    "@effect/vitest": "catalog:core",
     "@total-typescript/tsconfig": "catalog:core",
     "@types/node": "catalog:core",
-    "typescript": "catalog:core"
+    "colorette": "catalog:cli",
+    "effect": "catalog:core",
+    "empathic": "catalog:cli",
+    "fast-glob": "catalog:cli",
+    "rolldown": "catalog:core",
+    "typescript": "catalog:core",
+    "vitest": "catalog:core"
   }
 }

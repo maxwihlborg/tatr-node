@@ -1,5 +1,5 @@
 import { Data, Effect, Option, Order, Predicate } from "effect";
-import type { NonEmptyReadonlyArray } from "effect/Array";
+import type { NonEmptyArray, NonEmptyReadonlyArray } from "effect/Array";
 import { dual } from "effect/Function";
 import { unreachable } from "../lib/functions.js";
 import * as P from "../lib/parser.js";
@@ -147,29 +147,37 @@ const taskOrderParser = P.map(
 );
 
 function interpret(root: Expr.Expr): Effect.Effect<NonEmptyReadonlyArray<Expr.Op>, P.ParseError> {
-  const step: (root: Expr.Expr) => Effect.Effect<NonEmptyReadonlyArray<Expr.Op>, P.ParseError> =
-    Effect.fn(function* (expr) {
+  const step2: (
+    acc: Expr.Op[],
+    expr: Expr.Expr,
+  ) => Effect.Effect<NonEmptyArray<Expr.Op>, P.ParseError> = Effect.fnUntraced(
+    function* (acc, expr) {
       switch (expr._tag) {
         case "Prio":
         case "Int":
         case "Tag": {
-          return [expr];
+          acc.push(expr);
+
+          break;
         }
         case "Not": {
           const a = yield* Expr.expectKind(expr.expr, Expr.Kind.Bool);
 
-          return [...(yield* step(a)), op.Not()];
+          yield* step2(acc, a);
+          acc.push(op.Not());
+
+          break;
         }
         case "And":
         case "Or": {
           const a = yield* Expr.expectKind(expr.lhs, Expr.Kind.Bool);
           const b = yield* Expr.expectKind(expr.rhs, Expr.Kind.Bool);
 
-          return [
-            ...(yield* step(a)), //
-            ...(yield* step(b)),
-            op.Comp({ op: Expr.compOp(expr) }),
-          ];
+          yield* step2(acc, a);
+          yield* step2(acc, b);
+          acc.push(op.Comp({ op: Expr.compOp(expr) }));
+
+          break;
         }
         case "LessThan":
         case "GreaterThan":
@@ -178,30 +186,32 @@ function interpret(root: Expr.Expr): Effect.Effect<NonEmptyReadonlyArray<Expr.Op
           const a = yield* Expr.expectKind(expr.lhs, Expr.Kind.Int);
           const b = yield* Expr.expectKind(expr.rhs, Expr.Kind.Int);
 
-          return [
-            ...(yield* step(a)), //
-            ...(yield* step(b)),
-            op.Comp({ op: Expr.compOp(expr) }),
-          ];
+          yield* step2(acc, a);
+          yield* step2(acc, b);
+          acc.push(op.Comp({ op: Expr.compOp(expr) }));
+
+          break;
         }
         case "Equals":
         case "NotEquals": {
           const a = expr.lhs;
           const b = yield* Expr.expectKind(expr.rhs, Expr.kindOf(a));
 
-          return [
-            ...(yield* step(a)), //
-            ...(yield* step(b)),
-            op.Comp({ op: Expr.compOp(expr) }),
-          ];
+          yield* step2(acc, a);
+          yield* step2(acc, b);
+          acc.push(op.Comp({ op: Expr.compOp(expr) }));
+
+          break;
         }
         default: {
           unreachable(expr);
         }
       }
-    });
+      return acc as NonEmptyArray<Expr.Op>;
+    },
+  );
 
-  return Effect.flatMap(Expr.expectKind(root, Expr.Kind.Bool), (a) => step(a));
+  return Effect.flatMap(Expr.expectKind(root, Expr.Kind.Bool), (a) => step2([], a));
 }
 
 export const filter: {

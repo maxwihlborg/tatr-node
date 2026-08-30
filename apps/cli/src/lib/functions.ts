@@ -13,3 +13,7 @@ export const mapUpsert: {
   }
   return self.get(key)!;
 });
+
+export function shellQuote(value: string) {
+  return `'${value.replaceAll("'", globalThis.String.raw`'\''`)}'`;
+}

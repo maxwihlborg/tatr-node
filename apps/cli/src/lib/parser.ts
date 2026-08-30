@@ -74,7 +74,7 @@ export function fail<A = never>(index: number, message?: string): Result.Result<
   return Result.fail(new ParseError(index, message));
 }
 
-const ParserProto = {
+export const Prototype = {
   [TypeId]: TypeId,
   ...Pipeable.Prototype,
   [Symbol.iterator](this: Top) {
@@ -83,7 +83,7 @@ const ParserProto = {
 };
 
 export function make<A>(parse: (input: string, index: number) => ParseResult<A>): Parser<A> {
-  return Object.assign(Object.create(ParserProto), { parse });
+  return Object.assign(Object.create(Prototype), { parse });
 }
 
 export const map: {
@@ -134,7 +134,8 @@ export function literal<const T extends NonEmptyReadonlyArray<string>>(
   ...literals: T
 ): Parser<T[number]> {
   const xs = literals.toSorted((a, b) => Math.sign(b.length - a.length));
-  const err = xs.length > 1 ? `Expected one of '${xs.join(", ")}'` : `Expected '${xs[0]}'`;
+  const err =
+    xs.length > 1 ? `Expected one of ${xs.map((x) => `'${x}'`).join(", ")}` : `Expected '${xs[0]}'`;
 
   return make((input, index) => {
     for (const lit of xs) {

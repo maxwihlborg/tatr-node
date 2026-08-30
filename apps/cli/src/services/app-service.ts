@@ -1,8 +1,12 @@
-import { Cause, Context, Data, Effect, Layer, Stream, Struct } from "effect";
+import { Cause, Context, Data, Effect, Layer, Option, Stream, Struct } from "effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import { TaskInfo, type Task } from "../schema.js";
 import { FileUtils } from "./file-utils.js";
+
+export class TaskAlreadyExistError extends Data.TaggedError("TaskAlreadyExistError")<{
+  readonly id: string;
+}> {}
 
 export class AppService extends Context.Service<AppService>()("@tatr/cli/AppService", {
   make: Effect.gen(function* () {
@@ -10,7 +14,18 @@ export class AppService extends Context.Service<AppService>()("@tatr/cli/AppServ
     const fu = yield* FileUtils;
     const path = yield* Path.Path;
 
-    const getTaskDir = yield* Effect.cached(fu.findDir("tasks"));
+    const getTaskDir = yield* Effect.cached(
+      Effect.flatMap(
+        Effect.mapError(
+          fu.findDir(".git"),
+          () => new Cause.NoSuchElementError("Not in a git repository!"),
+        ),
+        (gitDir) =>
+          fu.findDir("tasks", {
+            last: path.dirname(gitDir),
+          }),
+      ),
+    );
 
     const listFiles = Stream.unwrap(
       Effect.map(getTaskDir, (root) =>
@@ -89,9 +104,43 @@ export class AppService extends Context.Service<AppService>()("@tatr/cli/AppServ
       }),
     ) satisfies Stream.Stream<Task, any, any>;
 
+    const saveTask = Effect.fnUntraced(function* (task: {
+      id: string;
+      title: string;
+      tags: Option.Option<ReadonlyArray<string>>;
+      priority: Option.Option<number>;
+      body: Option.Option<string>;
+    }) {
+      const taskPath = path.join(yield* getTaskDir, `${task.id}.md`);
+
+      yield* Effect.when(
+        Effect.fail(new TaskAlreadyExistError({ id: task.id })),
+        fs.exists(taskPath),
+      );
+
+      yield* fs.writeFileString(
+        taskPath,
+        [
+          "---",
+          `title: ${task.title}`,
+          `priority: ${Option.getOrElse(task.priority, () => 100)}`,
+          ...Option.match(task.tags, {
+            onNone: () => [],
+            onSome: (tags) => [`tags: ${tags.join(", ")}`],
+          }),
+          "---",
+          ...Option.match(task.body, {
+            onNone: () => [],
+            onSome: (body) => ["", body, ""],
+          }),
+        ].join("\n"),
+      );
+    });
+
     return {
       getTaskDir,
       listFileInfo,
+      saveTask,
     };
   }),
 }) {
