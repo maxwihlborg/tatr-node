@@ -1,8 +1,11 @@
 import { Console, Effect, Layer, pipe } from "effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
-import { AppService, FileUtils, Mint } from "../services/index.js";
+import { AppService, ConfigService, FileUtils, Mint } from "../services/index.js";
 
-const NewLayer = Layer.mergeAll(AppService.layer, Mint.layer).pipe(Layer.provide(FileUtils.layer));
+const NewLayer = Layer.mergeAll(AppService.layer, Mint.layer).pipe(
+  Layer.provide(ConfigService.layer),
+  Layer.provide(FileUtils.layer),
+);
 
 export const newTask = pipe(
   Command.make("new", {
@@ -20,6 +23,10 @@ export const newTask = pipe(
       Flag.withDescription("Priority of the task"),
       Flag.optional,
     ),
+    id: Flag.string("id").pipe(
+      Flag.withDescription("Id of the task"), //
+      Flag.optional,
+    ),
     body: Flag.string("body").pipe(
       Flag.withAlias("b"),
       Flag.withDescription("Body of the task"),
@@ -28,14 +35,16 @@ export const newTask = pipe(
   }),
   Command.withDescription("Create a task in the repo"),
   Command.withHandler(
-    Effect.fnUntraced(function* ({ title, tags, priority, body }) {
+    Effect.fnUntraced(function* ({ id, title, tags, priority, body }) {
       const app = yield* AppService;
       const mint = yield* Mint;
 
-      const id = yield* mint.nextId;
+      const task = yield* app.saveTask(
+        yield* Effect.catch(Effect.fromOption(id), () => mint.nextId),
+        { title, tags, priority, body },
+      );
 
-      yield* app.saveTask({ id, title, tags, priority, body });
-      yield* Console.log(id);
+      yield* Console.log(`Created: ${task.id}`);
     }),
   ),
   Command.provide(NewLayer),

@@ -1,27 +1,5 @@
-import {
-  Effect,
-  Predicate,
-  Schema,
-  SchemaGetter,
-  SchemaIssue,
-  SchemaTransformation,
-  FileSystem,
-} from "effect";
-import { Yaml } from "effect/unstable/encoding";
-
-function fromYamlString<S extends Schema.Top>(schema: S) {
-  return Schema.String.pipe(
-    Schema.decodeTo(schema, {
-      decode: SchemaGetter.transformOrFail((input) =>
-        Effect.try({
-          catch: () => new SchemaIssue.InvalidValue({ message: "could not be parsed as yaml" }),
-          try: () => Yaml.parse(input),
-        }),
-      ),
-      encode: SchemaGetter.forbidden(() => "Yaml encoding is not supported, yet"),
-    }),
-  );
-}
+import { Effect, FileSystem, Predicate, Schema, SchemaGetter, SchemaTransformation } from "effect";
+import { fromYamlString } from "./lib/schema";
 
 export const TaskTag = Schema.String.pipe(
   Schema.decodeTo(Schema.Trim, SchemaTransformation.toLowerCase()),

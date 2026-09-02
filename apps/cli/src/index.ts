@@ -1,12 +1,13 @@
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
 import { Effect, pipe } from "effect";
 import { Command } from "effect/unstable/cli";
+import { initConfig } from "./commands/init-config.js";
 import { listTasks } from "./commands/list-tasks.js";
 import { newTask } from "./commands/new-task.js";
 
 const cli = pipe(
   Command.make("tatr"), //
-  Command.withSubcommands([listTasks, newTask]),
+  Command.withSubcommands([listTasks, newTask, initConfig]),
 );
 
 const main = pipe(

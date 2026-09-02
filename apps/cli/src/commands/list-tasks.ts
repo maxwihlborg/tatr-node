@@ -1,9 +1,10 @@
 import { Array, Console, Effect, Layer, Option, pipe, Result, Stream, String } from "effect";
 import { Stdio } from "effect/Stdio";
 import { Argument, Command, Flag } from "effect/unstable/cli";
-import { AppService, FileUtils, Fzf, Printer, Query } from "../services/index.js";
+import { AppService, FileUtils, Fzf, Printer, Query, ConfigService } from "../services/index.js";
 
 const ListLayer = Layer.mergeAll(AppService.layer, Printer.layer, Fzf.layer).pipe(
+  Layer.provideMerge(ConfigService.layer),
   Layer.provide(FileUtils.layer),
 );
 
@@ -28,12 +29,13 @@ export const listTasks = pipe(
     Effect.fnUntraced(function* ({ query, sort, order, interactive }) {
       const printer = yield* Printer;
       const stdio = yield* Stdio;
+      const config = yield* ConfigService;
       const app = yield* AppService;
       const fzf = yield* Fzf;
 
       if (interactive) {
         return yield* Effect.scoped(
-          Effect.flatMap(app.getTaskDir, (dir) => fzf.runInteractive(dir, { query, order })),
+          Effect.flatMap(config.getTaskDir, (dir) => fzf.runInteractive(dir, { query, order })),
         );
       }
 

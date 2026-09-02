@@ -18,7 +18,15 @@ export class FileUtils extends Context.Service<FileUtils>()("@tatr/cli/FileUtils
       );
     }
 
+    function findFile(name: string, options?: find.Options) {
+      return Effect.mapError(
+        Effect.suspend(() => Effect.fromNullishOr(find.file(name, options))),
+        () => new Cause.NoSuchElementError(`'${name}' not found`),
+      );
+    }
+
     return {
+      findFile,
       findDir,
       glob,
     };

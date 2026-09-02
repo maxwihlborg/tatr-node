@@ -1,11 +1,17 @@
-import { Cause, Context, Data, Effect, Layer, Option, Stream, Struct } from "effect";
+import { Cause, Context, pipe, Data, Effect, Layer, Option, Stream, Struct } from "effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import { TaskInfo, type Task } from "../schema.js";
+import { ConfigError, ConfigService } from "./config-service.js";
 import { FileUtils } from "./file-utils.js";
 
 export class TaskAlreadyExistError extends Data.TaggedError("TaskAlreadyExistError")<{
   readonly id: string;
+}> {}
+
+export class TaskError extends Data.TaggedError("TaskError")<{
+  readonly file: string;
+  readonly cause: unknown;
 }> {}
 
 export class AppService extends Context.Service<AppService>()("@tatr/cli/AppService", {
@@ -13,22 +19,10 @@ export class AppService extends Context.Service<AppService>()("@tatr/cli/AppServ
     const fs = yield* FileSystem.FileSystem;
     const fu = yield* FileUtils;
     const path = yield* Path.Path;
-
-    const getTaskDir = yield* Effect.cached(
-      Effect.flatMap(
-        Effect.mapError(
-          fu.findDir(".git"),
-          () => new Cause.NoSuchElementError("Not in a git repository!"),
-        ),
-        (gitDir) =>
-          fu.findDir("tasks", {
-            last: path.dirname(gitDir),
-          }),
-      ),
-    );
+    const config = yield* ConfigService;
 
     const listFiles = Stream.unwrap(
-      Effect.map(getTaskDir, (root) =>
+      Effect.map(config.getTaskDir, (root) =>
         fu.glob("*.md", {
           cwd: root,
           absolute: true,
@@ -41,19 +35,19 @@ export class AppService extends Context.Service<AppService>()("@tatr/cli/AppServ
       Inside: { lines: string[] };
       Done: { matter: string };
     }>;
-    const state = Data.taggedEnum<State>();
+    const State = Data.taggedEnum<State>();
 
     function extractFrontMatter(file: string) {
       return fs.stream(file).pipe(
         Stream.decodeText(),
         Stream.splitLines,
-        Stream.scanEffect(state.Opening(), (acc: State, line) => {
-          return state.$match(acc, {
+        Stream.scanEffect(State.Opening(), (acc: State, line) => {
+          return State.$match(acc, {
             Opening: () => {
               if (line !== "---") {
                 return Effect.fail(new Cause.NoSuchElementError());
               }
-              return Effect.succeed(state.Inside({ lines: [] }));
+              return Effect.succeed(State.Inside({ lines: [] }));
             },
             Inside: (s) => {
               if (line !== "---") {
@@ -63,63 +57,61 @@ export class AppService extends Context.Service<AppService>()("@tatr/cli/AppServ
                   }),
                 );
               }
-              return Effect.succeed(state.Done({ matter: s.lines.join("\n") }));
+              return Effect.succeed(State.Done({ matter: s.lines.join("\n") }));
             },
             Done: () => Effect.die("unreachable"),
           });
         }),
-        Stream.filter(state.$is("Done")),
+        Stream.filter(State.$is("Done")),
         Stream.runHead,
         Effect.flatMap(Effect.fromOption),
         Effect.map((n) => n.matter),
       );
     }
 
-    const listFileInfo = Stream.Do.pipe(
-      Stream.bind("file", () => listFiles),
-      Stream.let("id", ({ file }) => path.basename(file, ".md")),
-      Stream.bindEffect("stat", ({ file }) => fs.stat(file)),
-      Stream.filterMapEffect((ctx) => {
-        return extractFrontMatter(ctx.file).pipe(
-          Effect.flatMap(TaskInfo.decodeYaml),
-          Effect.map((info) => ({
-            ...ctx,
-            info,
-          })),
-          Effect.tapErrorTag("PlatformError", (err) => {
-            return Effect.logError(err);
-          }),
-          Effect.tapErrorTag("NoSuchElementError", () => {
-            return Effect.logError(
-              `${path.relative(process.cwd(), ctx.file)}: No frontmatter`, //
-            );
-          }),
-          Effect.tapErrorTag("SchemaError", (err) => {
-            return Effect.logError(
-              `${path.relative(process.cwd(), ctx.file)}: Invalid frontmatter\n\n${err.message}\n`,
-            );
-          }),
-          Effect.result,
-        );
-      }),
-    ) satisfies Stream.Stream<Task, any, any>;
-
-    const saveTask = Effect.fnUntraced(function* (task: {
-      id: string;
-      title: string;
-      tags: Option.Option<ReadonlyArray<string>>;
-      priority: Option.Option<number>;
-      body: Option.Option<string>;
-    }) {
-      const taskPath = path.join(yield* getTaskDir, `${task.id}.md`);
-
-      yield* Effect.when(
-        Effect.fail(new TaskAlreadyExistError({ id: task.id })),
-        fs.exists(taskPath),
+    function readTask(file: string): Effect.Effect<Task, TaskError> {
+      return Effect.succeed({ file, id: path.basename(file, ".md") }).pipe(
+        Effect.bind("stat", () => fs.stat(file)),
+        Effect.bind("info", () => {
+          return extractFrontMatter(file).pipe(
+            Effect.flatMap(TaskInfo.decodeYaml),
+            Effect.tapErrorTag("PlatformError", (err) => {
+              return Effect.logError(err);
+            }),
+            Effect.tapErrorTag("NoSuchElementError", () => {
+              return Effect.logError(`${path.relative(process.cwd(), file)}: No frontmatter`);
+            }),
+            Effect.tapErrorTag("SchemaError", (err) => {
+              return Effect.logError(
+                `${path.relative(process.cwd(), file)}: Invalid frontmatter\n\n${err.message}\n`,
+              );
+            }),
+          );
+        }),
+        Effect.catch((cause) => new TaskError({ file, cause })),
       );
+    }
+
+    const listFileInfo: Stream.Stream<Task, TaskError | ConfigError | Cause.UnknownError> = pipe(
+      listFiles,
+      Stream.filterMapEffect((file) => Effect.result(readTask(file))),
+    );
+
+    const saveTask = Effect.fnUntraced(function* (
+      id: string,
+      task: {
+        title: string;
+        tags: Option.Option<ReadonlyArray<string>>;
+        priority: Option.Option<number>;
+        body: Option.Option<string>;
+      },
+    ) {
+      const filePath = path.join(yield* config.getTaskDir, `${id}.md`);
+
+      yield* Effect.when(Effect.fail(new TaskAlreadyExistError({ id })), fs.exists(filePath));
 
       yield* fs.writeFileString(
-        taskPath,
+        filePath,
         [
           "---",
           `title: ${task.title}`,
@@ -135,11 +127,13 @@ export class AppService extends Context.Service<AppService>()("@tatr/cli/AppServ
           }),
         ].join("\n"),
       );
+
+      return yield* readTask(filePath);
     });
 
     return {
-      getTaskDir,
       listFileInfo,
+      readTask,
       saveTask,
     };
   }),
