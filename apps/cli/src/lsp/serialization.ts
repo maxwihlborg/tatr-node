@@ -4,9 +4,6 @@ import { RpcSerialization } from "effect/unstable/rpc";
 const TERMINATOR = new Uint8Array([13, 10, 13, 10]);
 const CONTENT_LENGTH = /content-length:\s*(\d+)/i;
 
-const encoder = new TextEncoder();
-const decoder = new TextDecoder();
-
 function concat(head: Uint8Array, tail: Uint8Array) {
   const out = new Uint8Array(head.length + tail.length);
   out.set(head);
@@ -32,7 +29,10 @@ function indexOfTerminator(buffer: Uint8Array) {
  * are left to the built in JSON-RPC serialization, which is what `ndJsonRpc`
  * does with its newlines.
  */
-export function lspRpc(): RpcSerialization.RpcSerialization["Service"] {
+export function lspRpcSerialization(): RpcSerialization.RpcSerialization["Service"] {
+  const encoder = new TextEncoder();
+  const decoder = new TextDecoder();
+
   return RpcSerialization.RpcSerialization.of({
     contentType: "application/vscode-jsonrpc; charset=utf-8",
     includesFraming: true,
@@ -96,4 +96,6 @@ export function lspRpc(): RpcSerialization.RpcSerialization["Service"] {
   });
 }
 
-export const layerLspRpc = Layer.sync(RpcSerialization.RpcSerialization, () => lspRpc());
+export const layerLspRpcSerialization = Layer.sync(RpcSerialization.RpcSerialization, () =>
+  lspRpcSerialization(),
+);

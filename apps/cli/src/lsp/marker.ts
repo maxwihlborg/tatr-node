@@ -1,3 +1,5 @@
+import { Option } from "effect";
+
 const DELIMITERS = [
   ["[", "]"],
   ["(", ")"],
@@ -9,7 +11,7 @@ const ID = /^[0-9A-Za-z]+$/;
 const MARKERS: Record<string, ReadonlyArray<string>> = {
   TODO: [],
   FIXME: ["bug"],
-  feat: ["feature"],
+  FEAT: ["feature"],
 };
 
 const MARKER = new RegExp(`\\b(${Object.keys(MARKERS).join("|")}):`, "i");
@@ -30,24 +32,24 @@ export interface Marker {
  * that already carries an id reads as `WORD(<id>):`, so looking for a bare
  * `WORD:` skips it.
  */
-export function markerAt(line: string): Marker | undefined {
+export function markerAt(line: string): Option.Option<Marker> {
   const match = MARKER.exec(line);
 
   if (!match) {
-    return undefined;
+    return Option.none();
   }
 
   // the word as written, so rewriting it keeps the case the reader chose
   const word = match[1]!;
   const to = match.index + word.length + 1;
 
-  return {
+  return Option.some({
     word,
     tags: TAGS.get(word.toLowerCase()) ?? [],
     from: match.index,
     to,
     title: line.slice(to).trim(),
-  };
+  });
 }
 
 /**
@@ -55,25 +57,28 @@ export function markerAt(line: string): Marker | undefined {
  * behind and the cursor itself, which is what a completion replaces. Anything
  * but id characters in between means the reader was writing prose, not an id.
  */
-export function idSpanAt(line: string, character: number): { from: number; to: number } | undefined {
+export function idSpanAt(
+  line: string,
+  character: number,
+): Option.Option<{ from: number; to: number }> {
   const before = line.slice(0, character);
 
   for (const [open] of DELIMITERS) {
     const from = before.lastIndexOf(open) + 1;
 
     if (from > 0 && (from === character || ID.test(before.slice(from)))) {
-      return { from, to: character };
+      return Option.some({ from, to: character });
     }
   }
 
-  return undefined;
+  return Option.none();
 }
 
 /**
  * The id the cursor sits in, as written by the editor plugin: `[<id>]: title`
  * or `FIXME(<id>): title`. Either delimiter counts as being inside.
  */
-export function idAt(line: string, character: number): string | undefined {
+export function idAt(line: string, character: number): Option.Option<string> {
   for (const [open, close] of DELIMITERS) {
     let from = -1;
 
@@ -84,7 +89,7 @@ export function idAt(line: string, character: number): string | undefined {
         const id = line.slice(from + 1, i);
 
         if (character >= from && character <= i && ID.test(id)) {
-          return id;
+          return Option.some(id);
         }
 
         from = -1;
@@ -92,5 +97,5 @@ export function idAt(line: string, character: number): string | undefined {
     }
   }
 
-  return undefined;
+  return Option.none();
 }
