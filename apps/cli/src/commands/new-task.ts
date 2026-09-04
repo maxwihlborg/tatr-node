@@ -1,4 +1,4 @@
-import { Console, Effect, Layer, pipe } from "effect";
+import { Console, Effect, Layer, Option, pipe, Stdio, Stream, String } from "effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import { AppService, ConfigService, FileUtils, Mint } from "../services/index.js";
 
@@ -32,16 +32,32 @@ export const newTask = pipe(
       Flag.withDescription("Body of the task"),
       Flag.optional,
     ),
+    fromStdin: Flag.boolean("stdin").pipe(
+      Flag.withDescription("Read the body from stdin"),
+    ),
   }),
   Command.withDescription("Create a task in the repo"),
   Command.withHandler(
-    Effect.fnUntraced(function* ({ id, title, tags, priority, body }) {
+    Effect.fnUntraced(function* ({ id, title, tags, priority, body, fromStdin }) {
       const app = yield* AppService;
       const mint = yield* Mint;
+      const stdio = yield* Stdio.Stdio;
+
+      const readStdin = pipe(
+        stdio.stdin,
+        Stream.decodeText(),
+        Stream.mkString,
+        Effect.map((text) => Option.liftPredicate(text.trim(), String.isNonEmpty)),
+      );
 
       const task = yield* app.saveTask(
         yield* Effect.catch(Effect.fromOption(id), () => mint.nextId),
-        { title, tags, priority, body },
+        {
+          title,
+          tags,
+          priority,
+          body: fromStdin ? Option.orElse(yield* readStdin, () => body) : body,
+        },
       );
 
       yield* Console.log(`Created: ${task.id}`);
