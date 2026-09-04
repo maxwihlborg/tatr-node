@@ -58,8 +58,9 @@ query DSL, re-run through the cli on every keystroke, debounced by
 place of the list.
 
 Entries are `tatr ls` output verbatim, colours and all, the preview is
-`tatr preview <id>` in a `markdown` buffer so treesitter highlights it, and
-`enter`/`ctrl-s`/`ctrl-v`/`ctrl-t` open the task with
+`tatr preview <id>` in a `markdown` buffer so treesitter highlights it,
+`ctrl-y` yanks the id of the task under the cursor without leaving the picker,
+and `enter`/`ctrl-s`/`ctrl-v`/`ctrl-t` open the task with
 `edit`/`split`/`vsplit`/`tabedit`. `require("tatr.fzf").pick(opts)` is the
 picker itself, and `opts.query` seeds the prompt.
 
@@ -81,6 +82,7 @@ Defaults, passed to `require("tatr").setup()`:
       ["ctrl-v"] = "vsplit",
       ["ctrl-s"] = "split",
     },
+    copy = "ctrl-y",   -- key that yanks the task id, false to disable
     query_delay = 150, -- ms fzf waits before re-running the query
     -- passed through to fzf_live
     opts = {},

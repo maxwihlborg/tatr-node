@@ -58,6 +58,36 @@ function M.previewer(cfg)
   }
 end
 
+--- Yank the id of the task under the cursor, into the same registers fzf-lua's
+--- own yank actions use.
+---@param selected string[]
+local function copy(selected)
+  local id = id_of(selected[1])
+  if not id then
+    return
+  end
+
+  local regs = {}
+  if vim.o.clipboard:match "unnamed" then
+    regs[#regs + 1] = "*"
+  end
+  if vim.o.clipboard:match "unnamedplus" then
+    regs[#regs + 1] = "+"
+  end
+  if #regs == 0 then
+    regs[#regs + 1] = '"'
+  end
+
+  for _, reg in ipairs(regs) do
+    vim.fn.setreg(reg, id)
+  end
+  vim.fn.setreg("0", id)
+
+  vim.notify(("Copied %s to register %s"):format(id, regs[1]), vim.log.levels.INFO, {
+    title = "tatr",
+  })
+end
+
 --- Pick a task with fzf-lua and open it. fzf does no matching of its own, each
 --- keystroke re-runs the query through the cli, the way `tatr ls --fzf` does.
 ---@param opts TatrConfig|{ query: string[] }|nil
@@ -76,6 +106,11 @@ function M.pick(opts)
   local actions = { ["default"] = open(cfg.open) }
   for key, with in pairs(cfg.fzf.keys) do
     actions[key] = open(with)
+  end
+
+  if cfg.fzf.copy then
+    -- exec_silent: copying is no reason to leave the picker
+    actions[cfg.fzf.copy] = { fn = copy, exec_silent = true }
   end
 
   fzf.fzf_live(

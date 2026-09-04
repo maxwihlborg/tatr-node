@@ -8,7 +8,7 @@ local M = {}
 ---@field cd "lcd"|"tcd"|"cd"|false which cd to run into the task dir before opening
 ---@field open "edit"|"split"|"vsplit"|"tabedit" how to open the task
 ---@field prompt string picker prompt
----@field fzf { keys: table<string, string>, opts: table, query_delay: number } see tatr.fzf
+---@field fzf { keys: table<string, string>, copy: string|false, opts: table, query_delay: number } see tatr.fzf
 M.config = {
   cmd = { "tatr" },
   args = {},
@@ -22,6 +22,8 @@ M.config = {
       ["ctrl-v"] = "vsplit",
       ["ctrl-s"] = "split",
     },
+    -- key that yanks the id of the task under the cursor, false to disable
+    copy = "ctrl-y",
     -- ms fzf waits before reloading, so a burst of keystrokes costs one run
     query_delay = 150,
     -- passed through to fzf_exec, e.g. { winopts = { preview = { hidden = true } } }
