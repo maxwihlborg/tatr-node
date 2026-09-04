@@ -18,7 +18,11 @@ export class Fzf extends Context.Service<Fzf>()("@tatr/cli/Fzf", {
 
     function runInteractive(
       taskDir: string,
-      options: { query: Option.Option<string>; order: Option.Option<string> },
+      options: {
+        query: Option.Option<string>;
+        order: Option.Option<string>;
+        status: "open" | "closed" | "all";
+      },
     ) {
       return Effect.gen(function* () {
         const path = yield* Path.Path;
@@ -31,6 +35,7 @@ export class Fzf extends Context.Service<Fzf>()("@tatr/cli/Fzf", {
           "ls",
           "--color",
           "--log-level=none",
+          `--status=${options.status}`,
           ...mapOption(options.order, (n) => [`--order=${shellQuote(n)}`]),
           "{q}",
           "||",

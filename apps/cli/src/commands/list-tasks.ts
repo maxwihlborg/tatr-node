@@ -39,6 +39,10 @@ export const listTasks = pipe(
       Flag.withDescription("Output format"),
       Flag.optional,
     ),
+    status: Flag.choice("status", ["open", "closed", "all"]).pipe(
+      Flag.withDescription("Which tasks to list, by their 'closed' front matter"),
+      Flag.withDefault("open"),
+    ),
     sort: Flag.boolean("sort").pipe(Flag.withDefault(true)),
     order: Flag.atLeast(Flag.string("order"), 1).pipe(
       Flag.withDescription("How to order the tasks"),
@@ -49,7 +53,7 @@ export const listTasks = pipe(
   }),
   Command.withDescription("List tasks in the repo"),
   Command.withHandler(
-    Effect.fnUntraced(function* ({ query, sort, order, format, interactive }) {
+    Effect.fnUntraced(function* ({ query, sort, order, format, status, interactive }) {
       const printer = yield* Printer;
       const stdio = yield* Stdio;
       const config = yield* ConfigService;
@@ -58,11 +62,18 @@ export const listTasks = pipe(
 
       if (interactive) {
         return yield* Effect.scoped(
-          Effect.flatMap(config.getTaskDir, (dir) => fzf.runInteractive(dir, { query, order })),
+          Effect.flatMap(config.getTaskDir, (dir) =>
+            fzf.runInteractive(dir, { query, order, status }),
+          ),
         );
       }
 
       let program = app.listFileInfo;
+
+      if (status !== "all") {
+        const closed = status === "closed";
+        program = Stream.filter(program, (task) => task.info.closed === closed);
+      }
 
       if (Option.isSome(query)) {
         const res = yield* Effect.result(Query.compileQuery(query.value));

@@ -17,6 +17,7 @@ export class TaskInfo extends Schema.Opaque<TaskInfo>()(
     title: Schema.String,
     priority: Schema.Int.pipe(Schema.withDecodingDefault(Effect.succeed(50))),
     tags: TaskTagArray.pipe(Schema.withDecodingDefault(Effect.succeed([]))),
+    closed: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
   }),
 ) {
   static decodeYaml = Schema.decodeEffect(fromYamlString(this));
