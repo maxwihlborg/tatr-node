@@ -54,6 +54,14 @@ function M.root(opts, cb)
   end)
 end
 
+--- `--order` for `tatr ls`, nothing when the caller has no preference and the
+--- cli's own default should stand.
+---@param order string[]
+---@return string[]
+function M.order(order)
+  return #order > 0 and { "--order=" .. table.concat(order, ", ") } or {}
+end
+
 --- `tatr mint`: an id for a task that does not exist yet.
 ---@param opts { cmd: string[] }
 ---@param cb fun(id: string?, err: string?)

@@ -138,7 +138,8 @@ Defaults, passed to `require("tatr").setup()`:
 ```lua
 {
   cmd = { "tatr" },   -- how to invoke the cli
-  args = {},          -- extra args for every `tatr ls`, e.g. { "--order=title" }
+  args = {},          -- extra args for every `tatr ls`, e.g. { "--fzf" }
+  order = {},         -- order keys, e.g. { "-prio", "title" } or { "-id" } for newest first
   cd = "lcd",         -- "lcd" | "tcd" | "cd" | false, run before opening
   open = "edit",      -- "edit" | "split" | "vsplit" | "tabedit"
   create = "tabe",    -- how :TatrNew opens the task it just created
@@ -165,6 +166,11 @@ Defaults, passed to `require("tatr").setup()`:
   },
 }
 ```
+
+`order` becomes one `--order` flag with the keys comma joined, so it takes
+whatever `tatr ls --order` takes: `title`, `tags`, `id`, `size`, `priority`
+(`prio`), `mtime`, `btime`, each optionally `-` prefixed to reverse. Left empty
+the cli's own default stands, and an `--order` in `args` wins over it.
 
 Any of these can be overridden per call:
 `require("tatr").pick { open = "vsplit" }`.

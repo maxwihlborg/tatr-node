@@ -4,7 +4,8 @@ local M = {}
 
 ---@class TatrConfig
 ---@field cmd string[] how to invoke the cli
----@field args string[] extra args for every `tatr ls`, e.g. { "--order=title" }
+---@field args string[] extra args for every `tatr ls`, e.g. { "--fzf" }
+---@field order string[] how to order the list, e.g. { "-prio", "title" }, empty leaves it to the cli
 ---@field cd "lcd"|"tcd"|"cd"|false which cd to run into the task dir before opening
 ---@field open "edit"|"split"|"vsplit"|"tabedit" how to open the task
 ---@field create string how to open a task just created by TatrNew
@@ -16,6 +17,7 @@ local M = {}
 M.config = {
   cmd = { "tatr" },
   args = {},
+  order = {},
   cd = "lcd",
   open = "edit",
   create = "tabe",
@@ -289,7 +291,9 @@ end
 ---@param cb fun(tasks: TatrTask[], cfg: TatrConfig)
 function M.tasks(opts, cb)
   local cfg = M.resolve(opts)
-  local args = vim.list_extend(vim.deepcopy(cfg.args), (opts or {}).query or {})
+  -- `args` last of the two, so an --order in there wins over the option
+  local args = vim.list_extend(cli.order(cfg.order), cfg.args)
+  vim.list_extend(args, (opts or {}).query or {})
 
   cli.list({ cmd = cfg.cmd, args = args }, function(tasks, err)
     if not tasks then
