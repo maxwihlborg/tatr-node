@@ -34,7 +34,7 @@ export const listTasks = pipe(
     color: Flag.boolean("color").pipe(
       Flag.withDescription("Colourise the output, --no-color to disable"),
     ),
-    format: Flag.choice("format", ["json", "vimgrep"]).pipe(
+    format: Flag.choice("format", ["json", "vimgrep", "filepath"]).pipe(
       Flag.withAlias("f"),
       Flag.withDescription("Output format"),
       Flag.optional,
@@ -112,6 +112,13 @@ export const listTasks = pipe(
             return yield* pipe(
               program,
               Stream.map((info) => `${printer.vimgrep(info)}\n`),
+              Stream.run(stdio.stdout({ endOnDone: true })),
+            );
+          }
+          case "filepath": {
+            return yield* pipe(
+              program,
+              Stream.map((info) => `${info.file}\n`),
               Stream.run(stdio.stdout({ endOnDone: true })),
             );
           }

@@ -54,6 +54,27 @@ function M.root(opts, cb)
   end)
 end
 
+--- `tatr new <title>`: create a task, answer with the id it was given.
+---@param opts { cmd: string[], title: string[] }
+---@param cb fun(id: string?, err: string?)
+function M.new(opts, cb)
+  local args = { "new" }
+  vim.list_extend(args, opts.title)
+
+  run({ cmd = opts.cmd, args = args }, function(lines, err)
+    if not lines then
+      return cb(nil, err)
+    end
+
+    local id = vim.trim(lines[#lines]):match "^Created: (%S+)$"
+    if not id then
+      return cb(nil, vim.trim(table.concat(lines, "\n")))
+    end
+
+    cb(id, nil)
+  end)
+end
+
 --- `tatr preview <id>`: the task's body, front matter stripped.
 ---@param opts { cmd: string[], id: string }
 ---@param cb fun(lines: string[]?, err: string?)

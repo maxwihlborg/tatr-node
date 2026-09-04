@@ -24,6 +24,7 @@ Requires the `tatr` binary on `$PATH` and
 ```vim
 :Tatr
 :Tatr .rust and prio lt 40
+:TatrNew Write the docs
 ```
 
 Everything after `:Tatr` is handed to `tatr ls` as a query, so the whole query
@@ -31,8 +32,13 @@ DSL works. The picker lists the tasks the way `tatr ls` prints them, and
 selecting one opens the file, then runs `lcd` (see `cd` below) in that window
 into the dir `tatr root` reports.
 
+`:TatrNew [title]` runs `tatr new`, then opens the task it created with `create`
+(`tabe` by default). Called without a title it asks for one through
+`vim.ui.input`.
+
 `:Tatr` uses `vim.ui.select`. From lua, `require("tatr").pick(opts)` does the
-same and `require("tatr").open(task, opts)` opens a single task table from
+same, `require("tatr").new { title = { "..." } }` creates one, and
+`require("tatr").open(task, opts)` opens a single task table from
 `tatr ls -f json`.
 
 ### fzf-lua
@@ -74,6 +80,7 @@ Defaults, passed to `require("tatr").setup()`:
   args = {},          -- extra args for every `tatr ls`, e.g. { "--order=title" }
   cd = "lcd",         -- "lcd" | "tcd" | "cd" | false, run before opening
   open = "edit",      -- "edit" | "split" | "vsplit" | "tabedit"
+  create = "tabe",    -- how :TatrNew opens the task it just created
   prompt = "Tasks> ",
   fzf = {
     -- key -> how to open the task under the cursor, enter uses `open` above

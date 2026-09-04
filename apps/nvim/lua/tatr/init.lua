@@ -7,6 +7,7 @@ local M = {}
 ---@field args string[] extra args for every `tatr ls`, e.g. { "--order=title" }
 ---@field cd "lcd"|"tcd"|"cd"|false which cd to run into the task dir before opening
 ---@field open "edit"|"split"|"vsplit"|"tabedit" how to open the task
+---@field create string how to open a task just created by TatrNew
 ---@field prompt string picker prompt
 ---@field fzf { keys: table<string, string>, copy: string|false, opts: table, query_delay: number } see tatr.fzf
 M.config = {
@@ -14,6 +15,7 @@ M.config = {
   args = {},
   cd = "lcd",
   open = "edit",
+  create = "tabe",
   prompt = "Tasks> ",
   fzf = {
     -- key -> how to open the task under the cursor, `enter` uses `open` above
@@ -105,6 +107,20 @@ function M.open(task, opts)
     end
 
     edit(file, cfg)
+  end)
+end
+
+--- Create a task and open it with `create`.
+---@param opts TatrConfig|{ title: string[] }|nil
+function M.new(opts)
+  local cfg = M.resolve(opts)
+
+  cli.new({ cmd = cfg.cmd, title = (opts or {}).title or {} }, function(id, err)
+    if not id then
+      return M.fail(err)
+    end
+
+    M.open({ id = id }, vim.tbl_deep_extend("force", cfg, { open = cfg.create }))
   end)
 end
 
