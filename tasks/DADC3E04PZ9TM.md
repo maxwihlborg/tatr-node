@@ -6,4 +6,3 @@ closed: true
 ---
 
 `cat body.txt | tatr new -t tag "title"` should work
-

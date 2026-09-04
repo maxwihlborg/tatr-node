@@ -5,5 +5,5 @@ tags: cli
 closed: true
 ---
 
-`tatr new -t tag "Title" --format <filename|id|message>` (default message current behaviour)
-
+`tatr new -t tag "Title" --format <filename|id|message>` (default message
+current behaviour)

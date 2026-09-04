@@ -11,7 +11,8 @@ local M = {}
 ---@field upsert string how TatrUpsert opens the task under the cursor
 ---@field markers table<string, string[]> comment marker -> tags TatrTodo gives the task
 ---@field prompt string picker prompt
----@field fzf { keys: table<string, string>, copy: string|false, opts: table, query_delay: number } see tatr.fzf
+---@field picker "auto"|"select" which ui to pick with, auto prefers fzf-lua
+---@field fzf { keys: table<string, string>, copy: string|false, cycle: string|false, status: string, opts: table, query_delay: number } see tatr.fzf
 M.config = {
   cmd = { "tatr" },
   args = {},
@@ -23,6 +24,7 @@ M.config = {
     TODO = {},
     FIXME = { "bug" },
   },
+  picker = "auto",
   prompt = "Tasks> ",
   fzf = {
     -- key -> how to open the task under the cursor, `enter` uses `open` above
@@ -33,6 +35,11 @@ M.config = {
     },
     -- key that yanks the id of the task under the cursor, false to disable
     copy = "ctrl-y",
+    -- key that cycles open -> closed -> all, false to disable. ctrl-g is what
+    -- fzf-lua's own pickers use for switching what they list
+    cycle = "ctrl-g",
+    -- which tasks the picker starts on, cycled by `cycle`
+    status = "open",
     -- ms fzf waits before reloading, so a burst of keystrokes costs one run
     query_delay = 150,
     -- passed through to fzf_exec, e.g. { winopts = { preview = { hidden = true } } }
@@ -299,6 +306,12 @@ end
 --- Pick a task with vim.ui.select and open it.
 ---@param opts TatrConfig|{ query: string[] }|nil
 function M.pick(opts)
+  -- fzf-lua is the better picker when it is installed, and asking for it here
+  -- rather than in setup() leaves it lazy until someone picks a task
+  if M.resolve(opts).picker ~= "select" and pcall(require, "fzf-lua") then
+    return require("tatr.fzf").pick(opts)
+  end
+
   M.tasks(opts, function(tasks, cfg)
     vim.ui.select(tasks, {
       prompt = cfg.prompt,

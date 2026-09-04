@@ -5,7 +5,8 @@ tags: nvim
 closed: true
 ---
 
-Would be nice be nice if under a using a keybinding one could mint a new id in vim, inserting `[id]: ` into the buffer
+Would be nice be nice if under a using a keybinding one could mint a new id in
+vim, inserting `[id]: ` into the buffer
 
 User then input the title eg.
 
@@ -14,6 +15,8 @@ User then input the title eg.
 function function() {}
 ```
 
-Then by having the cursor on the line with the id and running `TaskrUpsert` or something would create and open the new task (everything after : if available set as the title)
+Then by having the cursor on the line with the id and running `TaskrUpsert` or
+something would create and open the new task (everything after : if available
+set as the title)
 
 Probably add a new binding in config for `upsert`

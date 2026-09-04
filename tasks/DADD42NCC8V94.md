@@ -4,7 +4,8 @@ priority: 50
 closed: true
 ---
 
-Main program is a pretty good place to catch and print (exit with non-zero) for our defined domain errors
+Main program is a pretty good place to catch and print (exit with non-zero) for
+our defined domain errors
 
 ```ts
 Effect.catch((err) => {

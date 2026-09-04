@@ -10,8 +10,8 @@ local M = {}
 ---@return string
 local function list_command(cfg)
   -- --color: nothing is a tty here, --log-level=none: the cli's skipped-file
-  -- logs would end up in the list
-  local args = { "ls", "--color", "--log-level=none" }
+  -- logs would end up in the list. --status first so `args` can override it
+  local args = { "ls", "--color", "--log-level=none", "--status=" .. cfg.fzf.status }
   vim.list_extend(args, cfg.args)
 
   local parts = {}
@@ -20,6 +20,32 @@ local function list_command(cfg)
   end
 
   return table.concat(parts, " ")
+end
+
+local STATUSES = { "open", "closed", "all" }
+
+---@param status string
+---@return string
+local function next_status(status)
+  for i, known in ipairs(STATUSES) do
+    if known == status then
+      return STATUSES[i % #STATUSES + 1]
+    end
+  end
+
+  return STATUSES[1]
+end
+
+--- `[open] - closed - all`, for the hint line fzf-lua builds from the actions.
+---@param status string
+---@return string
+local function status_header(status)
+  return table.concat(
+    vim.tbl_map(function(known)
+      return known == status and ("[%s]"):format(known) or known
+    end, STATUSES),
+    " - "
+  )
 end
 
 --- The id `tatr ls` prints in front of every task.
@@ -111,6 +137,23 @@ function M.pick(opts)
   if cfg.fzf.copy then
     -- exec_silent: copying is no reason to leave the picker
     actions[cfg.fzf.copy] = { fn = copy, exec_silent = true }
+  end
+
+  if cfg.fzf.cycle then
+    -- reuse: the window stays, the picker restarts with the next status, the
+    -- way fzf-lua's own toggles work
+    actions[cfg.fzf.cycle] = {
+      fn = function()
+        M.pick(vim.tbl_deep_extend("force", opts or {}, {
+          query = { fzf.get_last_query() or "" },
+          fzf = { status = next_status(cfg.fzf.status) },
+        }))
+      end,
+      reuse = true,
+      header = function()
+        return status_header(cfg.fzf.status)
+      end,
+    }
   end
 
   fzf.fzf_live(

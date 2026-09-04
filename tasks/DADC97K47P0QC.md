@@ -4,4 +4,3 @@ priority: 100
 closed: true
 tags: nvim
 ---
-

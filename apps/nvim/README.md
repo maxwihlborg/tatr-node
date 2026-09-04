@@ -60,7 +60,9 @@ marker, opening nothing.
 if it does not exist yet. Whatever follows the colon becomes the title; with
 nothing there it asks. Opening obeys `upsert`.
 
-`:Tatr` uses `vim.ui.select`. From lua, `require("tatr").pick(opts)` does the
+`:Tatr` uses the fzf-lua picker below when fzf-lua is installed, and
+`vim.ui.select` otherwise; `picker = "select"` forces the latter. From lua,
+`require("tatr").pick(opts)` does the
 same, `require("tatr").new { title = { "..." } }` creates one, and
 `require("tatr").open(task, opts)` opens a single task table from
 `tatr ls -f json`.
@@ -89,7 +91,10 @@ place of the list.
 
 Entries are `tatr ls` output verbatim, colours and all, the preview is
 `tatr preview <id>` in a `markdown` buffer so treesitter highlights it,
-`ctrl-y` yanks the id of the task under the cursor without leaving the picker,
+`ctrl-g` cycles which tasks are listed, `open` → `closed` → `all`, with the
+current one bracketed in the hint line fzf-lua draws under the count
+(`:: <ctrl-g> to [open] - closed - all`). `ctrl-y` yanks the id of the task
+under the cursor without leaving the picker,
 and `enter`/`ctrl-s`/`ctrl-v`/`ctrl-t` open the task with
 `edit`/`split`/`vsplit`/`tabedit`. `require("tatr.fzf").pick(opts)` is the
 picker itself, and `opts.query` seeds the prompt.
@@ -142,6 +147,7 @@ Defaults, passed to `require("tatr").setup()`:
     TODO = {},
     FIXME = { "bug" },
   },
+  picker = "auto",    -- "auto" prefers fzf-lua when installed, "select" forces vim.ui.select
   prompt = "Tasks> ",
   fzf = {
     -- key -> how to open the task under the cursor, enter uses `open` above
@@ -151,6 +157,8 @@ Defaults, passed to `require("tatr").setup()`:
       ["ctrl-s"] = "split",
     },
     copy = "ctrl-y",   -- key that yanks the task id, false to disable
+    cycle = "ctrl-g",  -- key that cycles open -> closed -> all, false to disable
+    status = "open",   -- which tasks the picker starts on
     query_delay = 150, -- ms fzf waits before re-running the query
     -- passed through to fzf_live
     opts = {},

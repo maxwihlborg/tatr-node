@@ -5,4 +5,5 @@ closed: true
 tags: cli
 ---
 
-Flag to override eg `--status <open|closed|all>` (default open). No need to change printer services
+Flag to override eg `--status <open|closed|all>` (default open). No need to
+change printer services
