@@ -1,5 +1,6 @@
 ---
 title: 'Support "feat" prefix'
+closed: true
 priority: 50
 ---
 

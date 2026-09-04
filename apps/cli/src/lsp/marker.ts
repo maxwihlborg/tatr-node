@@ -9,7 +9,12 @@ const ID = /^[0-9A-Za-z]+$/;
 const MARKERS: Record<string, ReadonlyArray<string>> = {
   TODO: [],
   FIXME: ["bug"],
+  feat: ["feature"],
 };
+
+const MARKER = new RegExp(`\\b(${Object.keys(MARKERS).join("|")}):`, "i");
+
+const TAGS = new Map(Object.entries(MARKERS).map(([word, tags]) => [word.toLowerCase(), tags]));
 
 export interface Marker {
   readonly word: string;
@@ -21,23 +26,28 @@ export interface Marker {
 }
 
 /**
- * The first unclaimed marker on the line. A marker that already carries an id
- * reads as `WORD(<id>):`, so looking for a bare `WORD:` skips it.
+ * The first unclaimed marker on the line, matched whatever its case. A marker
+ * that already carries an id reads as `WORD(<id>):`, so looking for a bare
+ * `WORD:` skips it.
  */
 export function markerAt(line: string): Marker | undefined {
-  let found: Marker | undefined;
+  const match = MARKER.exec(line);
 
-  for (const [word, tags] of Object.entries(MARKERS)) {
-    const from = line.indexOf(`${word}:`);
-
-    if (from >= 0 && (!found || from < found.from)) {
-      const to = from + word.length + 1;
-
-      found = { word, tags, from, to, title: line.slice(to).trim() };
-    }
+  if (!match) {
+    return undefined;
   }
 
-  return found;
+  // the word as written, so rewriting it keeps the case the reader chose
+  const word = match[1]!;
+  const to = match.index + word.length + 1;
+
+  return {
+    word,
+    tags: TAGS.get(word.toLowerCase()) ?? [],
+    from: match.index,
+    to,
+    title: line.slice(to).trim(),
+  };
 }
 
 /**

@@ -473,7 +473,6 @@ class TatrLSP extends Context.Service<TatrLSP>()("@tatr/cli/lsp", {
           }
         }),
       ),
-      // feat(DADGXKA8502DW): LSP completions
       "textDocument/completion": Effect.fnUntraced(
         function* ({ textDocument, position }) {
           const doc = yield* getDocument(textDocument.uri);
