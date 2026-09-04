@@ -9,6 +9,7 @@ local M = {}
 ---@field open "edit"|"split"|"vsplit"|"tabedit" how to open the task
 ---@field create string how to open a task just created by TatrNew
 ---@field upsert string how TatrUpsert opens the task under the cursor
+---@field markers table<string, string[]> comment marker -> tags TatrTodo gives the task
 ---@field prompt string picker prompt
 ---@field fzf { keys: table<string, string>, copy: string|false, opts: table, query_delay: number } see tatr.fzf
 M.config = {
@@ -18,6 +19,10 @@ M.config = {
   open = "edit",
   create = "tabe",
   upsert = "tabe",
+  markers = {
+    TODO = {},
+    FIXME = { "bug" },
+  },
   prompt = "Tasks> ",
   fzf = {
     -- key -> how to open the task under the cursor, `enter` uses `open` above
@@ -149,11 +154,17 @@ function M.mint(opts)
   end)
 end
 
---- The `[<id>]: title` an upsert works from, title optional.
+--- The id an upsert works from, as `[<id>]: title` from TatrMint or
+--- `FIXME(<id>): title` from TatrTodo. The title is optional.
 ---@param line string
 ---@return string? id, string title
 local function parse_line(line)
   local id, title = line:match "%[([%w]+)%]:?%s*(.*)$"
+
+  if not id then
+    id, title = line:match "%(([%w]+)%):?%s*(.*)$"
+  end
+
   return id, vim.trim(title or "")
 end
 
@@ -196,6 +207,73 @@ function M.upsert(opts)
         create { input }
       end
     end)
+  end)
+end
+
+--- The earliest configured marker on the line, e.g. `TODO:`.
+---@param line string
+---@param markers table<string, string[]>
+---@return { from: integer, to: integer, word: string, tags: string[] }?
+local function find_marker(line, markers)
+  local found
+
+  for word, tags in pairs(markers) do
+    local from, to = line:find(word .. ":", 1, true)
+    if from and (not found or from < found.from) then
+      found = { from = from, to = to, word = word, tags = tags }
+    end
+  end
+
+  return found
+end
+
+--- Turn a `TODO:`/`FIXME:` line into a task: the text after the marker becomes
+--- the title, the marker keeps its word and gains the id, and nothing is
+--- opened.
+---@param opts TatrConfig?
+function M.todo(opts)
+  local cfg = M.resolve(opts)
+  local win = vim.api.nvim_get_current_win()
+  local buf = vim.api.nvim_win_get_buf(win)
+  local row = vim.api.nvim_win_get_cursor(win)[1]
+  local line = vim.api.nvim_get_current_line()
+
+  local marker = find_marker(line, cfg.markers)
+  if not marker then
+    return M.fail(("No %s on this line"):format(table.concat(vim.tbl_keys(cfg.markers), "/")))
+  end
+
+  local rest = line:sub(marker.to + 1)
+
+  local function claim(title)
+    cli.new({ cmd = cfg.cmd, title = { title }, tags = marker.tags }, function(file, err)
+      if not file then
+        return M.fail(err)
+      end
+
+      local id = vim.fn.fnamemodify(file, ":t:r")
+      local current = vim.api.nvim_buf_get_lines(buf, row - 1, row, false)[1]
+
+      if current ~= line then
+        return M.fail(("Created %s, but line %d changed under it"):format(id, row))
+      end
+
+      vim.api.nvim_buf_set_lines(buf, row - 1, row, false, {
+        ("%s%s(%s):%s"):format(line:sub(1, marker.from - 1), marker.word, id, rest),
+      })
+
+      vim.notify(("Created %s"):format(id), vim.log.levels.INFO, { title = "tatr" })
+    end)
+  end
+
+  if vim.trim(rest) ~= "" then
+    return claim(vim.trim(rest))
+  end
+
+  vim.ui.input({ prompt = "Task title: " }, function(input)
+    if input and vim.trim(input) ~= "" then
+      claim(vim.trim(input))
+    end
   end)
 end
 

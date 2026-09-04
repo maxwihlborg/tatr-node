@@ -68,12 +68,15 @@ function M.mint(opts, cb)
 end
 
 --- `tatr new <title> -f filename`: create a task, answer with its path.
----@param opts { cmd: string[], title: string[], id?: string }
+---@param opts { cmd: string[], title: string[], id?: string, tags?: string[] }
 ---@param cb fun(file: string?, err: string?)
 function M.new(opts, cb)
   local args = { "new", "-f", "filename" }
   if opts.id then
     vim.list_extend(args, { "--id", opts.id })
+  end
+  for _, tag in ipairs(opts.tags or {}) do
+    vim.list_extend(args, { "-t", tag })
   end
   vim.list_extend(args, opts.title)
 

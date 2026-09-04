@@ -44,9 +44,21 @@ code as a marker:
 function foo() {}
 ```
 
-`:TatrUpsert` with the cursor on such a line opens the task that `[<id>]` names,
-creating it under that id first if it does not exist yet. Whatever follows the
-colon becomes the title; with nothing there it asks. Opening obeys `upsert`.
+`:TatrTodo` goes the other way round: on a line carrying `TODO:` or `FIXME:` it
+creates a task titled with the text after the marker and writes the id into the
+marker, opening nothing.
+
+```ts
+// FIXME: crashes on empty input
+// FIXME(DADDKSG5DX0WW): crashes on empty input
+```
+
+`FIXME` tags the task `bug`, per the `markers` map below.
+
+`:TatrUpsert` with the cursor on either kind of line, `[<id>]:` or
+`MARKER(<id>):`, opens the task that id names, creating it under that id first
+if it does not exist yet. Whatever follows the colon becomes the title; with
+nothing there it asks. Opening obeys `upsert`.
 
 `:Tatr` uses `vim.ui.select`. From lua, `require("tatr").pick(opts)` does the
 same, `require("tatr").new { title = { "..." } }` creates one, and
@@ -94,6 +106,10 @@ Defaults, passed to `require("tatr").setup()`:
   open = "edit",      -- "edit" | "split" | "vsplit" | "tabedit"
   create = "tabe",    -- how :TatrNew opens the task it just created
   upsert = "tabe",    -- how :TatrUpsert opens the task under the cursor
+  markers = {         -- what :TatrTodo picks up, and the tags it gives the task
+    TODO = {},
+    FIXME = { "bug" },
+  },
   prompt = "Tasks> ",
   fzf = {
     -- key -> how to open the task under the cursor, enter uses `open` above

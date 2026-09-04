@@ -18,8 +18,6 @@ export const listTasks = pipe(
       Argument.map(Option.liftPredicate(String.isNonEmpty)),
     ),
     interactive: Flag.boolean("fzf"),
-    // unused: colorette reads process.argv itself, this only teaches the
-    // parser about '--color' and '--no-color'
     color: Flag.boolean("color").pipe(
       Flag.withDescription("Colourise the output, --no-color to disable"),
     ),

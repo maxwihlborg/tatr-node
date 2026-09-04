@@ -33,6 +33,12 @@ end, {
   desc = "Insert a freshly minted '[id]: ' at the cursor",
 })
 
+vim.api.nvim_create_user_command("TatrTodo", function()
+  require("tatr").todo()
+end, {
+  desc = "Turn the TODO/FIXME on this line into a task, marker replaced by its id",
+})
+
 vim.api.nvim_create_user_command("TatrUpsert", function()
   require("tatr").upsert()
 end, {
