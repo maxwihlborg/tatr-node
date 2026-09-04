@@ -22,9 +22,19 @@ export class TaskInfo extends Schema.Opaque<TaskInfo>()(
   static decodeYaml = Schema.decodeEffect(fromYamlString(this));
 }
 
-export interface Task {
-  id: string;
-  file: string;
-  info: TaskInfo;
-  stat: FileSystem.File.Info;
+export class Task extends Schema.Opaque()(
+  Schema.Struct({
+    id: Schema.String,
+    file: Schema.String,
+    info: TaskInfo,
+    stat: Schema.Struct({
+      mtime: Schema.OptionFromNullOr(Schema.Date),
+      atime: Schema.OptionFromNullOr(Schema.Date),
+      birthtime: Schema.OptionFromNullOr(Schema.Date),
+      size: Schema.BigInt,
+    }),
+  }),
+) {
+  static encode = Schema.encodeEffect(this);
+  static decode = Schema.decodeEffect(this);
 }

@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Option, Path } from "effect";
+import { Console, Context, Effect, Layer, Option, Path, pipe, Stream, String } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 import { shellQuote } from "../lib/functions";
 
@@ -26,10 +26,10 @@ export class Fzf extends Context.Service<Fzf>()("@tatr/cli/Fzf", {
         // --log-level none: the child's skipped-file logs go to fzf's stderr,
         // which is our terminal, and would garble the UI
         const reload = [
-          "FORCE_COLOR=1",
           shellQuote(process.argv[0]!),
           shellQuote(path.resolve(process.argv[1]!)),
           "ls",
+          "--color",
           "--log-level=none",
           ...mapOption(options.order, (n) => [`--order=${shellQuote(n)}`]),
           "{q}",
@@ -55,7 +55,7 @@ export class Fzf extends Context.Service<Fzf>()("@tatr/cli/Fzf", {
             {
               // fzf reads keys from /dev/tty, so it needs no stdin of its own
               stdin: "ignore",
-              stdout: "inherit", // todo
+              stdout: "pipe", // todo
               stderr: "inherit",
               detached: false,
               cwd: taskDir,
@@ -63,7 +63,22 @@ export class Fzf extends Context.Service<Fzf>()("@tatr/cli/Fzf", {
           ),
         );
 
-        yield* handle.exitCode;
+        const out = yield* pipe(
+          handle.stdout,
+          Stream.decodeText(),
+          Stream.mkString,
+          Effect.map((line) =>
+            Option.map(Option.liftPredicate(line.trim(), String.isNonEmpty), (n) =>
+              n.slice(0, n.indexOf(":")),
+            ),
+          ),
+        );
+
+        if (Option.isNone(out)) {
+          process.exitCode = 1;
+        } else {
+          yield* Console.log(out.value);
+        }
       });
     }
 

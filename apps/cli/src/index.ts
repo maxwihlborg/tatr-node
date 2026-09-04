@@ -3,11 +3,14 @@ import { Effect, pipe } from "effect";
 import { Command } from "effect/unstable/cli";
 import { initConfig } from "./commands/init-config.js";
 import { listTasks } from "./commands/list-tasks.js";
+import { mintId } from "./commands/mint-id.js";
 import { newTask } from "./commands/new-task.js";
+import { previewTask } from "./commands/preview-task.js";
+import { showRoot } from "./commands/show-root.js";
 
 const cli = pipe(
   Command.make("tatr"), //
-  Command.withSubcommands([listTasks, newTask, initConfig]),
+  Command.withSubcommands([initConfig, listTasks, mintId, newTask, previewTask, showRoot]),
 );
 
 const main = pipe(

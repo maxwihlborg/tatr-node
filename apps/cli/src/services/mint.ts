@@ -39,14 +39,17 @@ export class TemporalId extends Schema.Opaque<TemporalId>()(
 
 export class Mint extends Context.Service<Mint>()("@tatr/cli/Mint", {
   make: Effect.gen(function* () {
+    const idAt = Effect.fnUntraced(function* (created: DateTime.Utc) {
+      const bytes = globalThis.crypto.getRandomValues(new Uint8Array(RAND_BYTES));
+
+      return yield* TemporalId.encode({ created, bytes });
+    });
+
     return {
       encode: TemporalId.encode,
       decode: TemporalId.decode,
-      nextId: Effect.Do.pipe(
-        Effect.bind("created", () => DateTime.now),
-        Effect.let("bytes", () => globalThis.crypto.getRandomValues(new Uint8Array(RAND_BYTES))),
-        Effect.flatMap(TemporalId.encode),
-      ),
+      idAt,
+      nextId: Effect.flatMap(DateTime.now, idAt),
     };
   }),
 }) {

@@ -1,7 +1,20 @@
-import { Array, Console, Effect, Layer, Option, pipe, Result, Stream, String } from "effect";
+import {
+  Array,
+  Console,
+  Effect,
+  Layer,
+  Option,
+  pipe,
+  Result,
+  Schema,
+  Stream,
+  String,
+} from "effect";
 import { Stdio } from "effect/Stdio";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import { AppService, FileUtils, Fzf, Printer, Query, ConfigService } from "../services/index.js";
+import { unreachable } from "../lib/functions.js";
+import { Task } from "../schema.js";
 
 const ListLayer = Layer.mergeAll(AppService.layer, Printer.layer, Fzf.layer).pipe(
   Layer.provideMerge(ConfigService.layer),
@@ -16,6 +29,16 @@ export const listTasks = pipe(
       Argument.map(Option.liftPredicate(String.isNonEmpty)),
     ),
     interactive: Flag.boolean("fzf"),
+    // unused: colorette reads process.argv itself, this only teaches the
+    // parser about '--color' and '--no-color'
+    color: Flag.boolean("color").pipe(
+      Flag.withDescription("Colourise the output, --no-color to disable"),
+    ),
+    format: Flag.choice("format", ["json", "vimgrep"]).pipe(
+      Flag.withAlias("f"),
+      Flag.withDescription("Output format"),
+      Flag.optional,
+    ),
     sort: Flag.boolean("sort").pipe(Flag.withDefault(true)),
     order: Flag.atLeast(Flag.string("order"), 1).pipe(
       Flag.withDescription("How to order the tasks"),
@@ -26,7 +49,7 @@ export const listTasks = pipe(
   }),
   Command.withDescription("List tasks in the repo"),
   Command.withHandler(
-    Effect.fnUntraced(function* ({ query, sort, order, interactive }) {
+    Effect.fnUntraced(function* ({ query, sort, order, format, interactive }) {
       const printer = yield* Printer;
       const stdio = yield* Stdio;
       const config = yield* ConfigService;
@@ -44,6 +67,7 @@ export const listTasks = pipe(
       if (Option.isSome(query)) {
         const res = yield* Effect.result(Query.compileQuery(query.value));
         if (Result.isFailure(res)) {
+          process.exitCode = 1;
           return yield* Console.log(res.failure.message);
         }
 
@@ -53,6 +77,7 @@ export const listTasks = pipe(
       if (sort && Option.isSome(order)) {
         const res = yield* Effect.result(Query.compileOrder(order.value));
         if (Result.isFailure(res)) {
+          process.exitCode = 1;
           return yield* Console.log(res.failure.message);
         }
 
@@ -63,10 +88,32 @@ export const listTasks = pipe(
         );
       }
 
+      if (Option.isSome(format)) {
+        switch (format.value) {
+          case "json": {
+            return yield* pipe(
+              Stream.runCollect(program),
+              Effect.flatMap(Schema.encodeEffect(Schema.toCodecJson(Schema.Array(Task)))),
+              Effect.flatMap((tasks) => Console.log(JSON.stringify(tasks))),
+            );
+          }
+          case "vimgrep": {
+            return yield* pipe(
+              program,
+              Stream.map((info) => `${printer.vimgrep(info)}\n`),
+              Stream.run(stdio.stdout({ endOnDone: true })),
+            );
+          }
+          default: {
+            unreachable(format.value);
+          }
+        }
+      }
+
       yield* pipe(
         program,
         Stream.map((info) => `${printer.showTask(info)}\n`),
-        Stream.run(stdio.stdout()),
+        Stream.run(stdio.stdout({ endOnDone: true })),
       );
     }),
   ),

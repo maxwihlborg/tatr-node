@@ -4,6 +4,7 @@ tags:
   - hello
   - other
   - world
+  - test
 ---
 
-Some information about this task
+Some task information
