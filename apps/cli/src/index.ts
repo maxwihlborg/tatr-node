@@ -1,5 +1,5 @@
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
-import { Effect, pipe } from "effect";
+import { Console, Effect, pipe } from "effect";
 import { Command } from "effect/unstable/cli";
 import { initConfig } from "./commands/init-config.js";
 import { listTasks } from "./commands/list-tasks.js";
@@ -13,8 +13,32 @@ const cli = pipe(
   Command.withSubcommands([initConfig, listTasks, mintId, newTask, previewTask, showRoot]),
 );
 
+function abort(message: string) {
+  return Effect.flatMap(Console.error(message), () =>
+    Effect.sync(() => {
+      process.exitCode = 1;
+    }),
+  );
+}
+
 const main = pipe(
-  Command.run(cli, { version: __VERSION__ }), //
+  Command.run(cli, { version: __VERSION__ }),
+  Effect.catch((err) => {
+    switch (err._tag) {
+      case "ConfigError":
+      case "CompileError": {
+        return abort(err.message);
+      }
+      case "TaskAlreadyExistError": {
+        return abort(`A task with id ${err.id} already exists`);
+      }
+      case "TaskError": {
+        return abort(`Could not read ${err.file}`);
+      }
+    }
+
+    return Effect.die(err);
+  }),
   Effect.provide(NodeServices.layer),
 );
 

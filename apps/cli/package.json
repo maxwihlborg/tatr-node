@@ -8,6 +8,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc && rolldown -c",
+    "format": "oxfmt **/*.{ts,md,json}",
     "watch": "rolldown -c --no-minify --watch"
   },
   "devDependencies": {

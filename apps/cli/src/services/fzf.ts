@@ -38,6 +38,9 @@ export class Fzf extends Context.Service<Fzf>()("@tatr/cli/Fzf", {
           `--status=${options.status}`,
           ...mapOption(options.order, (n) => [`--order=${shellQuote(n)}`]),
           "{q}",
+          // a query that does not compile is reported on stderr, show it in
+          // the list instead of over the ui
+          "2>&1",
           "||",
           "true",
         ].join(" ");

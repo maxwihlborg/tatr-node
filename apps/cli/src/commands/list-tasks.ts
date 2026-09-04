@@ -1,15 +1,4 @@
-import {
-  Array,
-  Console,
-  Effect,
-  Layer,
-  Option,
-  pipe,
-  Result,
-  Schema,
-  Stream,
-  String,
-} from "effect";
+import { Array, Console, Effect, Layer, Option, pipe, Schema, Stream, String } from "effect";
 import { Stdio } from "effect/Stdio";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import { AppService, FileUtils, Fzf, Printer, Query, ConfigService } from "../services/index.js";
@@ -76,25 +65,15 @@ export const listTasks = pipe(
       }
 
       if (Option.isSome(query)) {
-        const res = yield* Effect.result(Query.compileQuery(query.value));
-        if (Result.isFailure(res)) {
-          process.exitCode = 1;
-          return yield* Console.log(res.failure.message);
-        }
-
-        program = Stream.filter(program, Query.filter(res.success));
+        program = Stream.filter(program, Query.filter(yield* Query.compileQuery(query.value)));
       }
 
       if (sort && Option.isSome(order)) {
-        const res = yield* Effect.result(Query.compileOrder(order.value));
-        if (Result.isFailure(res)) {
-          process.exitCode = 1;
-          return yield* Console.log(res.failure.message);
-        }
+        const compare = yield* Query.compileOrder(order.value);
 
         program = pipe(
           Stream.runCollect(program),
-          Effect.map((xs) => Stream.fromIterable(Array.sort(xs, res.success))),
+          Effect.map((xs) => Stream.fromIterable(Array.sort(xs, compare))),
           Stream.unwrap,
         );
       }
