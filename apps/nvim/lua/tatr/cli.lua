@@ -54,11 +54,11 @@ function M.root(opts, cb)
   end)
 end
 
---- `tatr new <title>`: create a task, answer with the id it was given.
+--- `tatr new <title> -f filename`: create a task, answer with its path.
 ---@param opts { cmd: string[], title: string[] }
----@param cb fun(id: string?, err: string?)
+---@param cb fun(file: string?, err: string?)
 function M.new(opts, cb)
-  local args = { "new" }
+  local args = { "new", "-f", "filename" }
   vim.list_extend(args, opts.title)
 
   run({ cmd = opts.cmd, args = args }, function(lines, err)
@@ -66,12 +66,7 @@ function M.new(opts, cb)
       return cb(nil, err)
     end
 
-    local id = vim.trim(lines[#lines]):match "^Created: (%S+)$"
-    if not id then
-      return cb(nil, vim.trim(table.concat(lines, "\n")))
-    end
-
-    cb(id, nil)
+    cb(vim.fs.normalize(vim.trim(lines[1])), nil)
   end)
 end
 

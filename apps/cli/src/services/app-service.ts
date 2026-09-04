@@ -114,8 +114,8 @@ export class AppService extends Context.Service<AppService>()("@tatr/cli/AppServ
         filePath,
         [
           "---",
-          `title: ${task.title}`,
-          `priority: ${Option.getOrElse(task.priority, () => 100)}`,
+          `title: ${JSON.stringify(task.title)}`,
+          `priority: ${Option.getOrElse(task.priority, () => 50)}`,
           ...Option.match(task.tags, {
             onNone: () => [],
             onSome: (tags) => [`tags: ${tags.join(", ")}`],
@@ -125,6 +125,7 @@ export class AppService extends Context.Service<AppService>()("@tatr/cli/AppServ
             onNone: () => [],
             onSome: (body) => ["", body, ""],
           }),
+          "\n",
         ].join("\n"),
       );
 

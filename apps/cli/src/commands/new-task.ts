@@ -1,6 +1,7 @@
 import { Console, Effect, Layer, Option, pipe, Stdio, Stream, String } from "effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import { AppService, ConfigService, FileUtils, Mint } from "../services/index.js";
+import { unreachable } from "../lib/functions.js";
 
 const NewLayer = Layer.mergeAll(AppService.layer, Mint.layer).pipe(
   Layer.provide(ConfigService.layer),
@@ -35,10 +36,15 @@ export const newTask = pipe(
     fromStdin: Flag.boolean("stdin").pipe(
       Flag.withDescription("Read the body from stdin"),
     ),
+    format: Flag.choice("format", ["filename", "id"]).pipe(
+      Flag.withAlias("f"),
+      Flag.withDescription("What to print for the created task"),
+      Flag.withDefault("filename"),
+    ),
   }),
   Command.withDescription("Create a task in the repo"),
   Command.withHandler(
-    Effect.fnUntraced(function* ({ id, title, tags, priority, body, fromStdin }) {
+    Effect.fnUntraced(function* ({ id, title, tags, priority, body, fromStdin, format }) {
       const app = yield* AppService;
       const mint = yield* Mint;
       const stdio = yield* Stdio.Stdio;
@@ -60,7 +66,17 @@ export const newTask = pipe(
         },
       );
 
-      yield* Console.log(`Created: ${task.id}`);
+      switch (format) {
+        case "filename": {
+          return yield* Console.log(task.file);
+        }
+        case "id": {
+          return yield* Console.log(task.id);
+        }
+        default: {
+          unreachable(format);
+        }
+      }
     }),
   ),
   Command.provide(NewLayer),

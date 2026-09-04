@@ -115,12 +115,12 @@ end
 function M.new(opts)
   local cfg = M.resolve(opts)
 
-  cli.new({ cmd = cfg.cmd, title = (opts or {}).title or {} }, function(id, err)
-    if not id then
+  cli.new({ cmd = cfg.cmd, title = (opts or {}).title or {} }, function(file, err)
+    if not file then
       return M.fail(err)
     end
 
-    M.open({ id = id }, vim.tbl_deep_extend("force", cfg, { open = cfg.create }))
+    M.open({ file = file }, vim.tbl_deep_extend("force", cfg, { open = cfg.create }))
   end)
 end
 
