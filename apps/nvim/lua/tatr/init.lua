@@ -8,6 +8,7 @@ local M = {}
 ---@field cd "lcd"|"tcd"|"cd"|false which cd to run into the task dir before opening
 ---@field open "edit"|"split"|"vsplit"|"tabedit" how to open the task
 ---@field create string how to open a task just created by TatrNew
+---@field upsert string how TatrUpsert opens the task under the cursor
 ---@field prompt string picker prompt
 ---@field fzf { keys: table<string, string>, copy: string|false, opts: table, query_delay: number } see tatr.fzf
 M.config = {
@@ -16,6 +17,7 @@ M.config = {
   cd = "lcd",
   open = "edit",
   create = "tabe",
+  upsert = "tabe",
   prompt = "Tasks> ",
   fzf = {
     -- key -> how to open the task under the cursor, `enter` uses `open` above
@@ -121,6 +123,79 @@ function M.new(opts)
     end
 
     M.open({ file = file }, vim.tbl_deep_extend("force", cfg, { open = cfg.create }))
+  end)
+end
+
+--- Mint an id and insert `[<id>]: ` at the cursor.
+---@param opts TatrConfig?
+function M.mint(opts)
+  local cfg = M.resolve(opts)
+  local win = vim.api.nvim_get_current_win()
+  local buf = vim.api.nvim_win_get_buf(win)
+  local row, col = unpack(vim.api.nvim_win_get_cursor(win))
+
+  cli.mint({ cmd = cfg.cmd }, function(id, err)
+    if not id then
+      return M.fail(err)
+    end
+
+    local text = ("[%s]: "):format(id)
+
+    vim.api.nvim_buf_set_text(buf, row - 1, col, row - 1, col, { text })
+
+    if vim.api.nvim_get_current_win() == win then
+      vim.api.nvim_win_set_cursor(win, { row, col + #text })
+    end
+  end)
+end
+
+--- The `[<id>]: title` an upsert works from, title optional.
+---@param line string
+---@return string? id, string title
+local function parse_line(line)
+  local id, title = line:match "%[([%w]+)%]:?%s*(.*)$"
+  return id, vim.trim(title or "")
+end
+
+--- Open the task a line's `[<id>]` refers to, creating it first if it is not
+--- there yet. Text after the colon becomes the title, otherwise it is asked
+--- for.
+---@param opts TatrConfig|{ line: string }|nil
+function M.upsert(opts)
+  local cfg = M.resolve(opts)
+  local id, title = parse_line((opts or {}).line or vim.api.nvim_get_current_line())
+
+  if not id then
+    return M.fail "No [id] on this line"
+  end
+
+  local open = vim.tbl_deep_extend("force", cfg, { open = cfg.upsert })
+
+  local function create(words)
+    cli.new({ cmd = cfg.cmd, id = id, title = words }, function(file, err)
+      if not file then
+        return M.fail(err)
+      end
+
+      M.open({ file = file }, open)
+    end)
+  end
+
+  cli.path({ cmd = cfg.cmd, id = id }, function(file)
+    -- no path means no task yet, and `new` reports anything else that is wrong
+    if file then
+      return M.open({ file = file }, open)
+    end
+
+    if title ~= "" then
+      return create { title }
+    end
+
+    vim.ui.input({ prompt = ("Title for %s: "):format(id) }, function(input)
+      if input and vim.trim(input) ~= "" then
+        create { input }
+      end
+    end)
   end)
 end
 

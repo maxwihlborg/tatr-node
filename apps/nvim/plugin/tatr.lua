@@ -26,3 +26,15 @@ end, {
   nargs = "*",
   desc = "Create a tatr task and open it, asking for a title if given none",
 })
+
+vim.api.nvim_create_user_command("TatrMint", function()
+  require("tatr").mint()
+end, {
+  desc = "Insert a freshly minted '[id]: ' at the cursor",
+})
+
+vim.api.nvim_create_user_command("TatrUpsert", function()
+  require("tatr").upsert()
+end, {
+  desc = "Open the task the '[id]' on this line refers to, creating it if needed",
+})

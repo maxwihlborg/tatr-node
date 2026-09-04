@@ -36,6 +36,18 @@ into the dir `tatr root` reports.
 (`tabe` by default). Called without a title it asks for one through
 `vim.ui.input`.
 
+`:TatrMint` inserts a freshly minted `[<id>]: ` at the cursor, to be left in the
+code as a marker:
+
+```ts
+// [DADD9K30YVSBT]: Mint and upsert tasks
+function foo() {}
+```
+
+`:TatrUpsert` with the cursor on such a line opens the task that `[<id>]` names,
+creating it under that id first if it does not exist yet. Whatever follows the
+colon becomes the title; with nothing there it asks. Opening obeys `upsert`.
+
 `:Tatr` uses `vim.ui.select`. From lua, `require("tatr").pick(opts)` does the
 same, `require("tatr").new { title = { "..." } }` creates one, and
 `require("tatr").open(task, opts)` opens a single task table from
@@ -81,6 +93,7 @@ Defaults, passed to `require("tatr").setup()`:
   cd = "lcd",         -- "lcd" | "tcd" | "cd" | false, run before opening
   open = "edit",      -- "edit" | "split" | "vsplit" | "tabedit"
   create = "tabe",    -- how :TatrNew opens the task it just created
+  upsert = "tabe",    -- how :TatrUpsert opens the task under the cursor
   prompt = "Tasks> ",
   fzf = {
     -- key -> how to open the task under the cursor, enter uses `open` above

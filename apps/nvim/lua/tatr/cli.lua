@@ -54,11 +54,27 @@ function M.root(opts, cb)
   end)
 end
 
+--- `tatr mint`: an id for a task that does not exist yet.
+---@param opts { cmd: string[] }
+---@param cb fun(id: string?, err: string?)
+function M.mint(opts, cb)
+  run({ cmd = opts.cmd, args = { "mint" } }, function(lines, err)
+    if not lines then
+      return cb(nil, err)
+    end
+
+    cb(vim.trim(lines[1]), nil)
+  end)
+end
+
 --- `tatr new <title> -f filename`: create a task, answer with its path.
----@param opts { cmd: string[], title: string[] }
+---@param opts { cmd: string[], title: string[], id?: string }
 ---@param cb fun(file: string?, err: string?)
 function M.new(opts, cb)
   local args = { "new", "-f", "filename" }
+  if opts.id then
+    vim.list_extend(args, { "--id", opts.id })
+  end
   vim.list_extend(args, opts.title)
 
   run({ cmd = opts.cmd, args = args }, function(lines, err)
