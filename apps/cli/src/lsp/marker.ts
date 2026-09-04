@@ -41,6 +41,25 @@ export function markerAt(line: string): Marker | undefined {
 }
 
 /**
+ * Where an id is being typed: the span between the delimiter the cursor sits
+ * behind and the cursor itself, which is what a completion replaces. Anything
+ * but id characters in between means the reader was writing prose, not an id.
+ */
+export function idSpanAt(line: string, character: number): { from: number; to: number } | undefined {
+  const before = line.slice(0, character);
+
+  for (const [open] of DELIMITERS) {
+    const from = before.lastIndexOf(open) + 1;
+
+    if (from > 0 && (from === character || ID.test(before.slice(from)))) {
+      return { from, to: character };
+    }
+  }
+
+  return undefined;
+}
+
+/**
  * The id the cursor sits in, as written by the editor plugin: `[<id>]: title`
  * or `FIXME(<id>): title`. Either delimiter counts as being inside.
  */

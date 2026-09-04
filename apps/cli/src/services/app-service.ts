@@ -21,14 +21,14 @@ export class AppService extends Context.Service<AppService>()("@tatr/cli/AppServ
     const path = yield* Path.Path;
     const config = yield* ConfigService;
 
-    const listFiles = Stream.unwrap(
-      Effect.map(config.getTaskDir, (root) =>
-        fu.glob("*.md", {
-          cwd: root,
-          absolute: true,
-        }),
-      ),
-    );
+    function listFilesIn(root: string) {
+      return fu.glob("*.md", {
+        cwd: root,
+        absolute: true,
+      });
+    }
+
+    const listFiles = Stream.unwrap(Effect.map(config.getTaskDir, listFilesIn));
 
     type State = Data.TaggedEnum<{
       Opening: {};
@@ -37,10 +37,12 @@ export class AppService extends Context.Service<AppService>()("@tatr/cli/AppServ
     }>;
     const State = Data.taggedEnum<State>();
 
-    function extractFrontMatter(file: string) {
-      return fs.stream(file).pipe(
-        Stream.decodeText(),
-        Stream.splitLines,
+    function fileLines(file: string) {
+      return fs.stream(file).pipe(Stream.decodeText(), Stream.splitLines);
+    }
+
+    function extractFrontMatter<E, R>(lines: Stream.Stream<string, E, R>) {
+      return lines.pipe(
         Stream.scanEffect(State.Opening(), (acc: State, line) => {
           return State.$match(acc, {
             Opening: () => {
@@ -73,7 +75,7 @@ export class AppService extends Context.Service<AppService>()("@tatr/cli/AppServ
       return Effect.succeed({ file, id: path.basename(file, ".md") }).pipe(
         Effect.bind("stat", () => fs.stat(file)),
         Effect.bind("info", () => {
-          return extractFrontMatter(file).pipe(
+          return extractFrontMatter(fileLines(file)).pipe(
             Effect.flatMap(TaskInfo.decodeYaml),
             Effect.tapErrorTag("PlatformError", (err) => {
               return Effect.logError(err);
@@ -88,6 +90,25 @@ export class AppService extends Context.Service<AppService>()("@tatr/cli/AppServ
             }),
           );
         }),
+        Effect.catch((cause) => new TaskError({ file, cause })),
+      );
+    }
+
+    /** `listFileInfo` for a task dir the caller already knows. */
+    /**
+     * The front matter of a task the caller already holds the text of, for
+     * readers with a copy fresher than the file, such as an editor buffer.
+     */
+    function parseTask(file: string, text: string) {
+      return Effect.succeed({ file, id: path.basename(file, ".md") }).pipe(
+        Effect.bind("info", () =>
+          pipe(
+            Stream.succeed(text),
+            Stream.splitLines,
+            extractFrontMatter,
+            Effect.flatMap(TaskInfo.decodeYaml),
+          ),
+        ),
         Effect.catch((cause) => new TaskError({ file, cause })),
       );
     }
@@ -135,6 +156,8 @@ export class AppService extends Context.Service<AppService>()("@tatr/cli/AppServ
     return {
       formatTask,
       listFileInfo,
+      listFilesIn,
+      parseTask,
       readTask,
       saveTask,
     };

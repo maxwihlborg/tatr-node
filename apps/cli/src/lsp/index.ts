@@ -11,12 +11,14 @@ import {
   pipe,
   Ref,
   Schema,
+  Stream,
 } from "effect";
 import { constant } from "effect/Function";
 import { Command } from "effect/unstable/cli";
 import { Rpc, RpcGroup, RpcServer } from "effect/unstable/rpc";
 import type {
   CodeActionParams,
+  CompletionParams,
   DefinitionParams,
   HoverParams,
   DidChangeTextDocumentParams,
@@ -29,7 +31,7 @@ import { AppService } from "../services/app-service.js";
 import { ConfigService } from "../services/config-service.js";
 import { FileUtils } from "../services/file-utils.js";
 import { Mint } from "../services/mint.js";
-import { idAt, markerAt } from "./marker.js";
+import { idAt, idSpanAt, markerAt } from "./marker.js";
 import { layerLspRpc } from "./serialization.js";
 
 // the client sends whole documents on open and deltas on change
@@ -52,6 +54,9 @@ const InitializeResult = Schema.Struct({
     definitionProvider: Schema.Boolean,
     hoverProvider: Schema.Boolean,
     codeActionProvider: Schema.Boolean,
+    completionProvider: Schema.Struct({
+      triggerCharacters: Schema.Array(Schema.String),
+    }),
   }),
   serverInfo: Schema.Struct({
     name: Schema.String,
@@ -89,6 +94,23 @@ const Hover = Schema.Struct({
 const TextEdit = Schema.Struct({
   range: PositionRange,
   newText: Schema.String,
+});
+
+// 18 is `Reference`, the kind clients render for a pointer to something else
+const REFERENCE_ITEM = 18;
+
+const EMPTY_COMPLETION = { isIncomplete: false, items: [] };
+
+const CompletionList = Schema.Struct({
+  isIncomplete: Schema.Boolean,
+  items: Schema.Array(
+    Schema.Struct({
+      label: Schema.String,
+      kind: Schema.Int,
+      detail: Schema.String,
+      textEdit: TextEdit,
+    }),
+  ),
 });
 
 // the client does the writing: it fills in the task and rewrites the marker as
@@ -203,6 +225,10 @@ class TatrLSP extends Context.Service<TatrLSP>()("@tatr/cli/lsp", {
         payload: unsafe<CodeActionParams>(),
         success: Schema.Array(CodeAction),
       }),
+      Rpc.make("textDocument/completion", {
+        payload: unsafe<CompletionParams>(),
+        success: CompletionList,
+      }),
       Rpc.make("ping", {
         payload: Schema.Unknown,
         success: Schema.String,
@@ -237,6 +263,25 @@ class TatrLSP extends Context.Service<TatrLSP>()("@tatr/cli/lsp", {
     }
 
     /**
+     * The tasks of a dir, read from the client's copy wherever it holds one:
+     * a task open for editing is fresher than its file, and one a code action
+     * just made may not be written yet.
+     */
+    function listTasksIn(taskDir: string) {
+      return pipe(
+        app.listFilesIn(taskDir),
+        Stream.mapEffect((file) =>
+          Effect.flatMap(path.toFileUrl(file), (uri) =>
+            Effect.map(getDocument(uri.href), (doc) => ({ file, doc })),
+          ),
+        ),
+        Stream.filterMapEffect(({ file, doc }) =>
+          Effect.result(doc ? app.parseTask(file, doc.getText()) : app.readTask(file)),
+        ),
+      );
+    }
+
+    /**
      * A remembered task is a bridge until the client writes the file, so the
      * first lookup that reads it off disk drops the note.
      */
@@ -261,6 +306,7 @@ class TatrLSP extends Context.Service<TatrLSP>()("@tatr/cli/lsp", {
             definitionProvider: true,
             hoverProvider: true,
             codeActionProvider: true,
+            completionProvider: { triggerCharacters: ["[", "("] },
           },
           serverInfo: { name: "tatr", version: __VERSION__ },
         });
@@ -423,6 +469,61 @@ class TatrLSP extends Context.Service<TatrLSP>()("@tatr/cli/lsp", {
               return Effect.as(Effect.logDebug(err.message), []);
             default: {
               return Effect.succeed([]);
+            }
+          }
+        }),
+      ),
+      // feat(DADGXKA8502DW): LSP completions
+      "textDocument/completion": Effect.fnUntraced(
+        function* ({ textDocument, position }) {
+          const doc = yield* getDocument(textDocument.uri);
+          if (!doc) {
+            return EMPTY_COMPLETION;
+          }
+
+          const line = doc.getText({
+            start: { line: position.line, character: 0 },
+            end: { line: position.line + 1, character: 0 },
+          });
+
+          const span = idSpanAt(line, position.character);
+          if (!span) {
+            return EMPTY_COMPLETION;
+          }
+
+          const taskDir = yield* Effect.flatMap(
+            path.fromFileUrl(new URL(textDocument.uri)),
+            (file) => config.getTaskDirFromRootUri(path.dirname(file)),
+          );
+
+          const range = {
+            start: { line: position.line, character: span.from },
+            end: { line: position.line, character: span.to },
+          };
+
+          const items = yield* pipe(
+            listTasksIn(taskDir),
+            Stream.filter((task) => !task.info.closed),
+            // the id is what gets written, the title is what gets read, so
+            // clients filter on the title
+            Stream.map((task) => ({
+              label: task.info.title,
+              kind: REFERENCE_ITEM,
+              detail: task.id,
+              textEdit: { range, newText: task.id },
+            })),
+            Stream.runCollect,
+          );
+
+          return CompletionList.make({ isIncomplete: false, items });
+        },
+        Effect.catch((err) => {
+          switch (err._tag) {
+            case "ConfigError":
+            case "BadArgument":
+              return Effect.as(Effect.logDebug(err.message), EMPTY_COMPLETION);
+            default: {
+              return Effect.succeed(EMPTY_COMPLETION);
             }
           }
         }),
