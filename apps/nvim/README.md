@@ -94,6 +94,38 @@ and `enter`/`ctrl-s`/`ctrl-v`/`ctrl-t` open the task with
 `edit`/`split`/`vsplit`/`tabedit`. `require("tatr.fzf").pick(opts)` is the
 picker itself, and `opts.query` seeds the prompt.
 
+### Language server
+
+The cli ships one: `tatr lsp` speaks LSP over stdio, so markers work through
+the usual keymaps in any buffer, no plugin commands involved. It needs no
+`nvim-lspconfig`:
+
+```lua
+vim.lsp.config("tatr", {
+  cmd = { "tatr", "lsp" },
+  -- markers live in code, so attach wherever you leave them
+  filetypes = { "typescript", "javascript", "lua", "rust", "markdown" },
+  root_markers = { "tatr.config.yaml" },
+})
+
+vim.lsp.enable("tatr")
+```
+
+With that attached, on a line holding `[<id>]:` or `MARKER(<id>):`:
+
+| keymap | what it does                                                                                     |
+| ------ | ------------------------------------------------------------------------------------------------ |
+| `grd`  | jumps to the task file, like `:TatrUpsert` without the creating                                  |
+| `K`    | shows the task, front matter and body                                                            |
+| `gra`  | on a bare `TODO:`/`FIXME:`, creates the task and writes the id into the marker, like `:TatrTodo` |
+
+`root_markers` is only how neovim decides where to attach a client — the server
+resolves `tatr.config.yaml` per request, walking up from the file the request is
+about, so several projects in one session are fine.
+
+If `tatr` is not on `PATH`, point `cmd` at it:
+`cmd = { "node", "/path/to/apps/cli/bin/tatr.js", "lsp" }`.
+
 ## Configuration
 
 Defaults, passed to `require("tatr").setup()`:

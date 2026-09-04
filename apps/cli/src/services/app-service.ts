@@ -97,42 +97,43 @@ export class AppService extends Context.Service<AppService>()("@tatr/cli/AppServ
       Stream.filterMapEffect((file) => Effect.result(readTask(file))),
     );
 
-    const saveTask = Effect.fnUntraced(function* (
-      id: string,
-      task: {
-        title: string;
-        tags: Option.Option<ReadonlyArray<string>>;
-        priority: Option.Option<number>;
-        body: Option.Option<string>;
-      },
-    ) {
+    interface TaskFields {
+      title: string;
+      tags: Option.Option<ReadonlyArray<string>>;
+      priority: Option.Option<number>;
+      body: Option.Option<string>;
+    }
+
+    function formatTask(task: TaskFields) {
+      return [
+        "---",
+        `title: ${JSON.stringify(task.title)}`,
+        `priority: ${Option.getOrElse(task.priority, () => 50)}`,
+        ...Option.match(task.tags, {
+          onNone: () => [],
+          onSome: (tags) => [`tags: ${tags.join(", ")}`],
+        }),
+        "---",
+        ...Option.match(task.body, {
+          onNone: () => [],
+          onSome: (body) => ["", body, ""],
+        }),
+        "\n",
+      ].join("\n");
+    }
+
+    const saveTask = Effect.fnUntraced(function* (id: string, task: TaskFields) {
       const filePath = path.join(yield* config.getTaskDir, `${id}.md`);
 
       yield* Effect.when(Effect.fail(new TaskAlreadyExistError({ id })), fs.exists(filePath));
 
-      yield* fs.writeFileString(
-        filePath,
-        [
-          "---",
-          `title: ${JSON.stringify(task.title)}`,
-          `priority: ${Option.getOrElse(task.priority, () => 50)}`,
-          ...Option.match(task.tags, {
-            onNone: () => [],
-            onSome: (tags) => [`tags: ${tags.join(", ")}`],
-          }),
-          "---",
-          ...Option.match(task.body, {
-            onNone: () => [],
-            onSome: (body) => ["", body, ""],
-          }),
-          "\n",
-        ].join("\n"),
-      );
+      yield* fs.writeFileString(filePath, formatTask(task));
 
       return yield* readTask(filePath);
     });
 
     return {
+      formatTask,
       listFileInfo,
       readTask,
       saveTask,

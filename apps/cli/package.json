@@ -1,6 +1,6 @@
 {
   "name": "@tatr/cli",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "bin": {
     "tatr": "./bin/tatr.js"
@@ -22,6 +22,9 @@
     "fast-glob": "catalog:cli",
     "rolldown": "catalog:core",
     "typescript": "catalog:core",
-    "vitest": "catalog:core"
+    "vitest": "catalog:core",
+    "vscode-languageserver-protocol": "catalog:lsp",
+    "vscode-languageserver-textdocument": "catalog:lsp",
+    "vscode-languageserver-types": "catalog:lsp"
   }
 }

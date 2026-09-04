@@ -19,3 +19,7 @@ catalogs:
     rolldown: ^1.2.6
     typescript: ^7.0.2
     vitest: ^4.1.11
+  lsp:
+    vscode-languageserver-protocol: ^3.18.3
+    vscode-languageserver-textdocument: ^1.0.14
+    vscode-languageserver-types: ^3.18.3

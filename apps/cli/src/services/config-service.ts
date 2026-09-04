@@ -44,42 +44,44 @@ export class ConfigService extends Context.Service<ConfigService>()("@tatr/cli/C
     const fu = yield* FileUtils;
     const fs = yield* FileSystem.FileSystem;
 
-    const findConfigPath = yield* pipe(
-      fu.findFile(CONFIG_NAME),
-      Effect.mapError(() => new ConfigError(ConfigErrorReason.NotFound({ name: CONFIG_NAME }))),
-      Effect.cached,
-    );
+    function findConfigPathFrom(rootUri?: string) {
+      return Effect.mapError(
+        fu.findFile(CONFIG_NAME, { cwd: rootUri }),
+        () => new ConfigError(ConfigErrorReason.NotFound({ name: CONFIG_NAME })),
+      );
+    }
 
-    const getConfig = yield* pipe(
-      findConfigPath,
-      Effect.flatMap((configPath) =>
-        Effect.orDie(fs.readFileString(configPath)).pipe(
-          Effect.flatMap(TatrConfig.decodeYaml),
-          Effect.mapError((cause) => {
-            return new ConfigError(
-              ConfigErrorReason.Invalid({ path: configPath, cause: cause.message }),
-            );
-          }),
-        ),
-      ),
-      Effect.cached,
-    );
+    function readConfigFrom(configPath: string) {
+      return Effect.orDie(fs.readFileString(configPath)).pipe(
+        Effect.flatMap(TatrConfig.decodeYaml),
+        Effect.mapError((cause) => {
+          return new ConfigError(
+            ConfigErrorReason.Invalid({ path: configPath, cause: cause.message }),
+          );
+        }),
+      );
+    }
 
-    const getTaskDir = yield* Effect.Do.pipe(
-      Effect.bind("configPath", () => findConfigPath),
-      Effect.bind("config", () => getConfig),
-      Effect.map(({ configPath, config }) =>
-        path.resolve(path.dirname(configPath), config.taskDir),
-      ),
-      Effect.tap((dirPath) =>
-        Effect.when(
-          Effect.fail(new ConfigError(ConfigErrorReason.TaskDirNotFound({ path: dirPath }))),
-          fs.stat(dirPath).pipe(
-            Effect.map((n) => n.type !== "Directory"),
-            Effect.orElseSucceed(() => true),
+    function getTaskDirFrom(configPath: string, config: TatrConfig) {
+      return pipe(
+        Effect.succeed(path.resolve(path.dirname(configPath), config.taskDir)),
+        Effect.tap((dirPath) =>
+          Effect.when(
+            Effect.fail(new ConfigError(ConfigErrorReason.TaskDirNotFound({ path: dirPath }))),
+            fs.stat(dirPath).pipe(
+              Effect.map((n) => n.type !== "Directory"),
+              Effect.orElseSucceed(() => true),
+            ),
           ),
         ),
-      ),
+      );
+    }
+
+    const findConfigPath = yield* Effect.cached(findConfigPathFrom());
+    const getConfig = yield* Effect.cached(Effect.flatMap(findConfigPath, readConfigFrom));
+    const getTaskDir = yield* pipe(
+      Effect.all([findConfigPath, getConfig]),
+      Effect.flatMap(([configPath, config]) => getTaskDirFrom(configPath, config)),
       Effect.cached,
     );
 
@@ -104,7 +106,16 @@ export class ConfigService extends Context.Service<ConfigService>()("@tatr/cli/C
       return { configPath, taskDir };
     });
 
+    function getTaskDirFromRootUri(rootUri: string) {
+      return Effect.Do.pipe(
+        Effect.bind("configPath", () => findConfigPathFrom(rootUri)),
+        Effect.bind("config", ({ configPath }) => readConfigFrom(configPath)),
+        Effect.flatMap(({ configPath, config }) => getTaskDirFrom(configPath, config)),
+      );
+    }
+
     return {
+      getTaskDirFromRootUri,
       findConfigPath,
       getTaskDir,
       getConfig,
