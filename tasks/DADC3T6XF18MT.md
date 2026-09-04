@@ -1,5 +1,5 @@
 ---
-title: Add a closed: boolean front matter (default hidden)
+title: "Add a `closed: boolean` front matter (default hidden)"
 priority: 100
 closed: true
 tags: cli
