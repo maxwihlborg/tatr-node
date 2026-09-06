@@ -1,5 +1,5 @@
 import { NodeStream } from "@effect/platform-node";
-import { Cause, Context, Effect, Layer, Schema, Stream } from "effect";
+import { Cause, Context, Effect, Layer, Order, Schema, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 import * as find from "empathic/find";
 import fg from "fast-glob";
@@ -9,22 +9,24 @@ import fg from "fast-glob";
  * `summary` events as well. Those decode as nothing and are dropped, as is a
  * match on a path `rg` could not read as utf-8.
  */
-const RipgrepMatch = Schema.Struct({
-  type: Schema.Literal("match"),
-  data: Schema.Struct({
-    path: Schema.Struct({ text: Schema.String }),
-    lines: Schema.Struct({ text: Schema.String }),
-    line_number: Schema.Int,
-    submatches: Schema.Array(
-      Schema.Struct({
-        match: Schema.Struct({ text: Schema.String }),
-        start: Schema.Int,
-      }),
-    ),
+class RipgrepMatch extends Schema.Opaque<RipgrepMatch>()(
+  Schema.Struct({
+    type: Schema.Literal("match"),
+    data: Schema.Struct({
+      path: Schema.Struct({ text: Schema.String }),
+      lines: Schema.Struct({ text: Schema.String }),
+      line_number: Schema.Int,
+      submatches: Schema.Array(
+        Schema.Struct({
+          match: Schema.Struct({ text: Schema.String }),
+          start: Schema.Int,
+        }),
+      ),
+    }),
   }),
-});
-
-const decodeMatch = Schema.decodeEffect(Schema.fromJsonString(RipgrepMatch));
+) {
+  static decodeJson = Schema.decodeEffect(Schema.fromJsonString(this));
+}
 
 export interface GrepMatch {
   readonly file: string;
@@ -38,6 +40,18 @@ export interface GrepMatch {
 }
 
 /**
+ * Where a match sits, for callers who want the same search to read the same
+ * way twice. `rg` searches in parallel and answers in whatever order it
+ * finishes, which is worth keeping: sorting a handful of matches costs
+ * nothing next to searching one file at a time.
+ */
+export const byLocation = Order.combineAll<GrepMatch>([
+  Order.mapInput(Order.String, (match) => match.file),
+  Order.mapInput(Order.Number, (match) => match.line),
+  Order.mapInput(Order.Number, (match) => match.character),
+]);
+
+/**
  * `rg` counts in bytes and editors count in utf-16 code units, which part ways
  * the moment a line holds anything outside ascii.
  */
@@ -46,7 +60,7 @@ function characterAt(text: string, byteOffset: number) {
 }
 
 /** One `rg` match event carries every hit on its line. */
-function toMatches(event: typeof RipgrepMatch.Type): Stream.Stream<GrepMatch> {
+function toMatches(event: RipgrepMatch): Stream.Stream<GrepMatch> {
   return Stream.map(Stream.fromIterable(event.data.submatches), (submatch) => ({
     file: event.data.path.text,
     line: event.data.line_number - 1,
@@ -82,7 +96,7 @@ export class FileUtils extends Context.Service<FileUtils>()("@tatr/cli/FileUtils
     /**
      * Every literal occurrence of `pattern` under `dir`, found by `ripgrep` so
      * that whatever the repo ignores stays ignored. Only what is on disk is
-     * searched: an editor's unwritten copy is the caller's problem.
+     * searched.
      */
     function grep(pattern: string, dir: string) {
       return spawner
@@ -90,9 +104,6 @@ export class FileUtils extends Context.Service<FileUtils>()("@tatr/cli/FileUtils
           ChildProcess.make("rg", [
             "--json",
             "--fixed-strings",
-            // rg answers out of order otherwise, and a jump list should not
-            // reshuffle between two runs of the same search
-            "--sort=path",
             "--no-messages",
             "--",
             pattern,
@@ -100,7 +111,7 @@ export class FileUtils extends Context.Service<FileUtils>()("@tatr/cli/FileUtils
           ]),
         )
         .pipe(
-          Stream.filterMapEffect((line) => Effect.result(decodeMatch(line))),
+          Stream.filterMapEffect((line) => Effect.result(RipgrepMatch.decodeJson(line))),
           Stream.flatMap(toMatches),
         );
     }

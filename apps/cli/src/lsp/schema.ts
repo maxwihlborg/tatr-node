@@ -1,4 +1,4 @@
-import { Schema } from "effect";
+import { Order, Schema } from "effect";
 
 export const Position = Schema.Struct({
   line: Schema.Int,
@@ -52,12 +52,16 @@ export const TextEdit = Schema.Struct({
   newText: Schema.String,
 });
 
-export const CompletionItem = Schema.Struct({
-  label: Schema.String,
-  kind: Schema.Int,
-  detail: Schema.String,
-  textEdit: TextEdit,
-});
+export class CompletionItem extends Schema.Opaque<CompletionItem>()(
+  Schema.Struct({
+    label: Schema.String,
+    kind: Schema.Int,
+    detail: Schema.String,
+    textEdit: TextEdit,
+  }),
+) {
+  static orderByLabel = Order.mapInput<string, CompletionItem>(Order.String, (n) => n.label);
+}
 
 export const CompletionList = Schema.Struct({
   isIncomplete: Schema.Boolean,

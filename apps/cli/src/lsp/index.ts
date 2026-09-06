@@ -7,6 +7,7 @@ import {
   Logger,
   Optic,
   Option,
+  Order,
   Path,
   pipe,
   Ref,
@@ -19,7 +20,7 @@ import { TextDocumentIdentifier } from "vscode-languageserver-protocol";
 import { TextDocument, type DocumentUri } from "vscode-languageserver-textdocument";
 import { AppService } from "../services/app-service.js";
 import { ConfigService } from "../services/config-service.js";
-import { FileUtils } from "../services/file-utils.js";
+import { byLocation, FileUtils } from "../services/file-utils.js";
 import { Mint } from "../services/mint.js";
 import { EMPTY_COMPLETION, INCREMENTAL_SYNC, REFERENCE_ITEM, TASK_START } from "./constants.js";
 import { idAt, idSpanAt, markerAt } from "./marker.js";
@@ -33,6 +34,7 @@ import {
   PositionRange,
 } from "./schema.js";
 import { layerLspRpcSerialization } from "./serialization.js";
+import { runCollectSorted } from "../lib/functions.js";
 
 class TatrLanguageServer extends Context.Service<TatrLanguageServer>()(
   "@tatr/cli/TatrLanguageServer",
@@ -45,18 +47,27 @@ class TatrLanguageServer extends Context.Service<TatrLanguageServer>()(
       const mint = yield* Mint;
       const path = yield* Path.Path;
 
-      const createdRef = yield* Ref.make<Record<string, URL>>({});
+      /** A task a code action made, kept whole rather than as a pointer: until
+       * the client writes it, this note is the only copy there is. */
+      interface CreatedTask {
+        readonly uri: URL;
+        readonly text: string;
+      }
+
+      const createdRef = yield* Ref.make<Record<string, CreatedTask>>({});
       const docsRef = yield* Ref.make<Record<DocumentUri, TextDocument>>({});
 
-      const _created = Optic.id<Record<string, URL>>();
+      const _created = Optic.id<Record<string, CreatedTask>>();
       const _document = Optic.id<Record<DocumentUri, TextDocument>>();
 
-      function rememberTask(id: string, uri: URL) {
-        return Ref.update(createdRef, _created.optionalKey(id).modify(constant(uri)));
+      function rememberTask(id: string, task: CreatedTask) {
+        return Ref.update(createdRef, _created.optionalKey(id).modify(constant(task)));
       }
 
       function getRememberedTask(id: string) {
-        return Effect.map(Ref.get(createdRef), (c) => _created.optionalKey(id).get(c));
+        return Effect.map(Ref.get(createdRef), (c) =>
+          Option.fromUndefinedOr(_created.optionalKey(id).get(c)),
+        );
       }
 
       function forgetTask(id: string) {
@@ -110,27 +121,69 @@ class TatrLanguageServer extends Context.Service<TatrLanguageServer>()(
         );
       }
 
+      function listPendingIn(taskDir: string, onDisk: ReadonlySet<string>) {
+        return Effect.gen(function* () {
+          const pending = new Map<string, string>();
+
+          function claim(file: Option.Option<string>, text: () => string) {
+            if (Option.isNone(file) || onDisk.has(file.value) || pending.has(file.value)) {
+              return;
+            }
+            if (Option.isNone(config.taskIdOfFileIn(taskDir, file.value))) {
+              return;
+            }
+            pending.set(file.value, text());
+          }
+
+          // Open first: where the client has both, its buffer is the fresher
+          // of the two, and the note is what that buffer started as
+          const docs = yield* Ref.get(docsRef);
+
+          for (const [uri, doc] of Object.entries(docs)) {
+            claim(yield* Effect.option(path.fromFileUrl(new URL(uri))), () => doc.getText());
+          }
+
+          const created = yield* Ref.get(createdRef);
+
+          for (const task of Object.values(created)) {
+            claim(yield* Effect.option(path.fromFileUrl(task.uri)), () => task.text);
+          }
+
+          return pending;
+        });
+      }
+
       /**
        * The tasks of a directory, read from the client's copy wherever it holds one:
        * a task open for editing is fresher than its file, and one a code action
        * just made may not be written yet.
-       *
-       * TODO(DAENFNKM05E1C): Join with pending tasks
        */
       function listTasksIn(taskDir: string) {
-        return app.listFilesIn(taskDir).pipe(
-          Stream.filterMapEffect((file) =>
-            path.toFileUrl(file).pipe(
-              Effect.flatMap((uri) => getDocument(uri.href)),
-              Effect.flatMap(
-                Option.match({
-                  onSome: (doc) => app.parseTask(file, doc.getText()),
-                  onNone: () => app.readTask(file),
-                }),
+        return Stream.unwrap(
+          Effect.gen(function* () {
+            const files = yield* Stream.runCollect(app.listFilesIn(taskDir));
+            const pending = yield* listPendingIn(taskDir, new Set(files));
+
+            return Stream.concat(
+              Stream.fromIterable(files).pipe(
+                Stream.filterMapEffect((file) =>
+                  path.toFileUrl(file).pipe(
+                    Effect.flatMap((uri) => getDocument(uri.href)),
+                    Effect.flatMap(
+                      Option.match({
+                        onSome: (doc) => app.parseTask(file, doc.getText()),
+                        onNone: () => app.readTask(file),
+                      }),
+                    ),
+                    Effect.result,
+                  ),
+                ),
               ),
-              Effect.result,
-            ),
-          ),
+              Stream.fromIterable(pending).pipe(
+                Stream.filterMapEffect(([file, text]) => Effect.result(app.parseTask(file, text))),
+              ),
+            );
+          }),
         );
       }
 
@@ -143,8 +196,12 @@ class TatrLanguageServer extends Context.Service<TatrLanguageServer>()(
           Effect.tap(() => forgetTask(id)),
           Effect.flatMap((task) => path.toFileUrl(task.file)),
           Effect.catch((err) =>
-            Effect.flatMap(getRememberedTask(id), (remembered) =>
-              remembered ? Effect.succeed(remembered) : Effect.fail(err),
+            Effect.flatMap(
+              getRememberedTask(id),
+              Option.match({
+                onSome: (pending) => Effect.succeed(pending.uri),
+                onNone: () => Effect.fail(err),
+              }),
             ),
           ),
         );
@@ -250,16 +307,18 @@ class TatrLanguageServer extends Context.Service<TatrLanguageServer>()(
               Stream.filter((match) =>
                 Option.contains(idAt(match.text, match.character), id.value),
               ),
-              Stream.mapEffect((match) =>
-                Effect.map(path.toFileUrl(match.file), (uri) => ({
-                  uri,
-                  range: {
-                    start: { line: match.line, character: match.character },
-                    end: { line: match.line, character: match.character + match.length },
-                  },
-                })),
+              runCollectSorted(byLocation),
+              Effect.flatMap(
+                Effect.forEach((match) =>
+                  Effect.map(path.toFileUrl(match.file), (uri) => ({
+                    uri,
+                    range: {
+                      start: { line: match.line, character: match.character },
+                      end: { line: match.line, character: match.character + match.length },
+                    },
+                  })),
+                ),
               ),
-              Stream.runCollect,
             );
 
             if (!context.includeDeclaration) {
@@ -351,7 +410,14 @@ class TatrLanguageServer extends Context.Service<TatrLanguageServer>()(
             );
             const taskUri = yield* path.toFileUrl(taskFile);
 
-            yield* rememberTask(id, taskUri);
+            const text = app.formatTask({
+              title: marker.value.title.length > 0 ? marker.value.title : id,
+              tags: Option.liftPredicate(marker.value.tags, Array.isReadonlyArrayNonEmpty),
+              priority: Option.none(),
+              body: Option.none(),
+            });
+
+            yield* rememberTask(id, { uri: taskUri, text });
 
             return [
               CodeAction.make({
@@ -364,15 +430,7 @@ class TatrLanguageServer extends Context.Service<TatrLanguageServer>()(
                       edits: [
                         {
                           range: TASK_START,
-                          newText: app.formatTask({
-                            title: marker.value.title.length > 0 ? marker.value.title : id,
-                            tags: Option.liftPredicate(
-                              marker.value.tags,
-                              Array.isReadonlyArrayNonEmpty,
-                            ),
-                            priority: Option.none(),
-                            body: Option.none(),
-                          }),
+                          newText: text,
                         },
                       ],
                     },
@@ -446,7 +504,7 @@ class TatrLanguageServer extends Context.Service<TatrLanguageServer>()(
                   textEdit: { range, newText: task.id },
                 }),
               ),
-              Stream.runCollect,
+              runCollectSorted(CompletionItem.orderByLabel),
             );
 
             return CompletionList.make({

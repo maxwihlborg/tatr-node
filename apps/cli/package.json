@@ -8,6 +8,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc && rolldown -c",
+    "lint": "oxlint",
     "format": "oxfmt **/*.{ts,md,json}",
     "watch": "rolldown -c --no-minify --watch"
   },
@@ -20,6 +21,7 @@
     "effect": "catalog:core",
     "empathic": "catalog:cli",
     "fast-glob": "catalog:cli",
+    "oxlint": "catalog:core",
     "rolldown": "catalog:core",
     "typescript": "catalog:core",
     "vitest": "catalog:core",

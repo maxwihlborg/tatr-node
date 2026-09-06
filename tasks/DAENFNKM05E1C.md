@@ -1,6 +1,7 @@
 ---
 title: "Join with pending tasks"
 priority: 50
+closed: true
 tags: bug, lsp
 ---
 

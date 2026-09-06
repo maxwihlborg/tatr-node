@@ -1,4 +1,4 @@
-import { Effect, FileSystem, Predicate, Schema, SchemaGetter, SchemaTransformation } from "effect";
+import { Effect, Predicate, Schema, SchemaGetter, SchemaTransformation } from "effect";
 import { fromYamlString } from "./lib/schema";
 
 export const TaskTag = Schema.String.pipe(
