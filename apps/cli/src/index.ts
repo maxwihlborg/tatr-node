@@ -5,21 +5,13 @@ import { initConfig } from "./commands/init-config.js";
 import { listTasks } from "./commands/list-tasks.js";
 import { mintId } from "./commands/mint-id.js";
 import { newTask } from "./commands/new-task.js";
-import { previewTask } from "./commands/preview-task.js";
 import { showRoot } from "./commands/show-root.js";
+import { showTask } from "./commands/show-task.js";
 import { lspStart } from "./lsp/index.js";
 
 const cli = pipe(
   Command.make("tatr"), //
-  Command.withSubcommands([
-    initConfig,
-    listTasks,
-    lspStart,
-    mintId,
-    newTask,
-    previewTask,
-    showRoot,
-  ]),
+  Command.withSubcommands([initConfig, listTasks, lspStart, mintId, newTask, showRoot, showTask]),
 );
 
 function abort(message: string) {

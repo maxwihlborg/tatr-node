@@ -97,18 +97,18 @@ function M.new(opts, cb)
   end)
 end
 
---- `tatr preview <id>`: the task's body, front matter stripped.
+--- `tatr show <id>`: the task's body, front matter stripped.
 ---@param opts { cmd: string[], id: string }
 ---@param cb fun(lines: string[]?, err: string?)
-function M.preview(opts, cb)
-  run({ cmd = opts.cmd, args = { "preview", opts.id } }, cb)
+function M.show(opts, cb)
+  run({ cmd = opts.cmd, args = { "show", opts.id } }, cb)
 end
 
---- `tatr preview <id> --resolve-path`: where the task with this id lives.
+--- `tatr show <id> --resolve-path`: where the task with this id lives.
 ---@param opts { cmd: string[], id: string }
 ---@param cb fun(file: string?, err: string?)
 function M.path(opts, cb)
-  run({ cmd = opts.cmd, args = { "preview", opts.id, "--resolve-path" } }, function(lines, err)
+  run({ cmd = opts.cmd, args = { "show", opts.id, "--resolve-path" } }, function(lines, err)
     if not lines then
       return cb(nil, err)
     end

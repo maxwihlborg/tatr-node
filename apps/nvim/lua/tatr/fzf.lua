@@ -56,7 +56,7 @@ local function id_of(entry)
   return (fzf.utils.strip_ansi_coloring(entry)):match "^(.-): %["
 end
 
---- `tatr preview <id>` in a real buffer, so the markdown gets a filetype and
+--- `tatr show <id>` in a real buffer, so the markdown gets a filetype and
 --- with it treesitter, rather than the flat text a shell previewer would give.
 --- Handed over as a `_ctor` spec: fzf-lua merges a table previewer with its
 --- builtin defaults, which would drop the class' metatable on the way.
@@ -73,7 +73,7 @@ function M.previewer(cfg)
       return {}
     end
 
-    cli.preview({ cmd = cfg.cmd, id = id }, function(lines, err)
+    cli.show({ cmd = cfg.cmd, id = id }, function(lines, err)
       cb { title = id, filetype = "markdown", content = lines or vim.split(err, "\n") }
     end)
   end

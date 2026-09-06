@@ -90,7 +90,7 @@ query DSL, re-run through the cli on every keystroke, debounced by
 place of the list.
 
 Entries are `tatr ls` output verbatim, colours and all, the preview is
-`tatr preview <id>` in a `markdown` buffer so treesitter highlights it,
+`tatr show <id>` in a `markdown` buffer so treesitter highlights it,
 `ctrl-g` cycles which tasks are listed, `open` → `closed` → `all`, with the
 current one bracketed in the hint line fzf-lua draws under the count
 (`:: <ctrl-g> to [open] - closed - all`). `ctrl-y` yanks the id of the task

@@ -14,13 +14,20 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import { ConfigService, FileUtils } from "../services";
 import { unreachable } from "../lib/functions";
 
-const PreviewLayer = ConfigService.layer.pipe(Layer.provide(FileUtils.layer));
+const ShowLayer = ConfigService.layer.pipe(Layer.provide(FileUtils.layer));
 
-export const previewTask = pipe(
-  Command.make("preview", {
-    id: Argument.string("id"),
-    resolvePath: Flag.boolean("resolve-path"),
+export const showTask = pipe(
+  Command.make("show", {
+    id: pipe(
+      Argument.string("id"), //
+      Argument.withDescription("Id of the task"),
+    ),
+    resolvePath: pipe(
+      Flag.boolean("resolve-path"),
+      Flag.withDescription("Print the path of the task instead of its body"),
+    ),
   }),
+  Command.withDescription("Print the body of a task, front matter stripped"),
   Command.withHandler(
     Effect.fnUntraced(function* ({ id, resolvePath }) {
       const config = yield* ConfigService;
@@ -83,5 +90,5 @@ export const previewTask = pipe(
       }
     }),
   ),
-  Command.provide(PreviewLayer),
+  Command.provide(ShowLayer),
 );
