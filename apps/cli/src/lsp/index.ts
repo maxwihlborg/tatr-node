@@ -113,6 +113,8 @@ class TatrLanguageServer extends Context.Service<TatrLanguageServer>()(
        * The tasks of a directory, read from the client's copy wherever it holds one:
        * a task open for editing is fresher than its file, and one a code action
        * just made may not be written yet.
+       *
+       * TODO(DAENFNKM05E1C): Join with pending tasks
        */
       function listTasksIn(taskDir: string) {
         return app.listFilesIn(taskDir).pipe(
@@ -153,6 +155,7 @@ class TatrLanguageServer extends Context.Service<TatrLanguageServer>()(
         },
         ["initialize"]: () => {
           return Effect.succeed({
+            // feat(DAENH148NGQBE): Support references
             capabilities: {
               textDocumentSync: { openClose: true, change: INCREMENTAL_SYNC },
               definitionProvider: true,
