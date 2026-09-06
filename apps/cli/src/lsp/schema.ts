@@ -1,5 +1,18 @@
 import { Order, Schema } from "effect";
 
+/**
+ * What the editor's config says, of which the server reads the little it knows
+ * about. Optional all the way down: a client sends `initializationOptions` when
+ * it has something to say and leaves it out when it does not.
+ */
+export const InitializeParams = Schema.Struct({
+  initializationOptions: Schema.optional(
+    Schema.Struct({
+      references: Schema.optional(Schema.Boolean),
+    }),
+  ),
+});
+
 export const Position = Schema.Struct({
   line: Schema.Int,
   character: Schema.Int,

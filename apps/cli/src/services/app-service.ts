@@ -280,14 +280,22 @@ export class AppService extends Context.Service<AppService>()("@tatr/cli/AppServ
       ].join("\n");
     }
 
-    const saveTask = Effect.fnUntraced(function* (id: string, task: TaskFields) {
-      const filePath = yield* config.getTaskFilePath(id);
+    const saveTaskIn = Effect.fnUntraced(function* (
+      taskDir: string,
+      id: string,
+      task: TaskFields,
+    ) {
+      const filePath = config.taskFilePathIn(taskDir, id);
 
       yield* Effect.when(Effect.fail(new TaskAlreadyExistError({ id })), fs.exists(filePath));
 
       yield* fs.writeFileString(filePath, formatTask(task));
 
       return yield* readTask(filePath);
+    });
+
+    const saveTask = Effect.fnUntraced(function* (id: string, task: TaskFields) {
+      return yield* saveTaskIn(yield* config.getTaskDir, id, task);
     });
 
     return {
@@ -298,6 +306,7 @@ export class AppService extends Context.Service<AppService>()("@tatr/cli/AppServ
       parseTask,
       readTask,
       saveTask,
+      saveTaskIn,
     };
   }),
 }) {

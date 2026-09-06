@@ -158,6 +158,7 @@ export class ConfigService extends Context.Service<ConfigService>()("@tatr/cli/C
     return {
       getRootDirFromRootUri,
       getTaskDirFromRootUri,
+      taskFilePathIn,
       getTaskFilePath,
       getTaskFilePathFromRootUri,
       globPattern,

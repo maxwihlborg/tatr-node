@@ -136,6 +136,15 @@ clients ask for with `includeDeclaration`; `vim.lsp.buf.references()` does,
 resolves `tatr.config.yaml` per request, walking up from the file the request is
 about, so several projects in one session are fine.
 
+`init_options` turns a feature off, for when another plugin would rather tatr
+kept out of a request it also answers:
+
+```lua
+vim.lsp.config("tatr", {
+  init_options = { references = false },
+})
+```
+
 If `tatr` is not on `PATH`, point `cmd` at it:
 `cmd = { "node", "/path/to/apps/cli/bin/tatr.js", "lsp" }`.
 

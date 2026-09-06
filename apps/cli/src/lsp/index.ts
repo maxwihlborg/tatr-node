@@ -7,7 +7,6 @@ import {
   Logger,
   Optic,
   Option,
-  Order,
   Path,
   pipe,
   Ref,
@@ -211,13 +210,13 @@ class TatrLanguageServer extends Context.Service<TatrLanguageServer>()(
         ["ping"]: () => {
           return Effect.succeed("pong");
         },
-        ["initialize"]: () => {
+        ["initialize"]: ({ initializationOptions }) => {
           return Effect.succeed({
             capabilities: {
               textDocumentSync: { openClose: true, change: INCREMENTAL_SYNC },
               definitionProvider: true,
               hoverProvider: true,
-              referencesProvider: true,
+              referencesProvider: initializationOptions?.references ?? true,
               codeActionProvider: true,
               completionProvider: { triggerCharacters: ["[", "("] },
             },

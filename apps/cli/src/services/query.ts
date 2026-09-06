@@ -11,10 +11,7 @@ export class CompileError extends Data.TaggedError("CompileError")<{
   message: string;
 }> {}
 
-const op = Data.taggedEnum<Expr.Op>();
-const node = Data.taggedEnum<Expr.Expr>();
-
-export function normalize(query: string | readonly string[], sep: string) {
+export function normalize(query: string | readonly string[], sep: string): string {
   return (Predicate.isString(query) ? query : query.join(sep)).trim().toLowerCase();
 }
 
@@ -44,38 +41,38 @@ const exprParser: P.Parser<Expr.Expr> = P.buildExpressionParser(
           switch (a) {
             case ">":
             case "gt":
-              return node.GreaterThan({ lhs, rhs, i });
+              return Expr.Expr.GreaterThan({ lhs, rhs, i });
             case "<":
             case "lt":
-              return node.LessThan({ lhs, rhs, i });
+              return Expr.Expr.LessThan({ lhs, rhs, i });
             case ">=":
             case "gte":
-              return node.GreaterThanEquals({ lhs, rhs, i });
+              return Expr.Expr.GreaterThanEquals({ lhs, rhs, i });
             case "<=":
             case "lte":
-              return node.LessThanEquals({ lhs, rhs, i });
+              return Expr.Expr.LessThanEquals({ lhs, rhs, i });
             case "==":
             case "eq":
             case "is":
-              return node.Equals({ lhs, rhs, i });
+              return Expr.Expr.Equals({ lhs, rhs, i });
             case "!=":
             case "neq":
             case "isnt":
-              return node.NotEquals({ lhs, rhs, i });
+              return Expr.Expr.NotEquals({ lhs, rhs, i });
           }
         },
       ),
     },
     {
       fixity: "prefix",
-      parser: P.mapToken(P.literal("not", "!"), (_, i) => (expr) => node.Not({ expr, i })),
+      parser: P.mapToken(P.literal("not", "!"), (_, i) => (expr) => Expr.Expr.Not({ expr, i })),
     },
     {
       fixity: "infix",
       associativity: "left",
       parser: P.mapToken(
         P.literal("and", "&&", "&"),
-        (_, i) => (lhs, rhs) => node.And({ lhs, rhs, i }),
+        (_, i) => (lhs, rhs) => Expr.Expr.And({ lhs, rhs, i }),
       ),
     },
     {
@@ -83,16 +80,16 @@ const exprParser: P.Parser<Expr.Expr> = P.buildExpressionParser(
       associativity: "left",
       parser: P.mapToken(
         P.literal("or", "||", "|"),
-        (_, i) => (lhs, rhs) => node.Or({ lhs, rhs, i }),
+        (_, i) => (lhs, rhs) => Expr.Expr.Or({ lhs, rhs, i }),
       ),
     },
   ],
   () =>
     P.choice([
       P.surround(P.literalToken("("), exprParser, P.literalToken(")")),
-      P.mapToken(P.literal("priority", "prio"), (_, i) => node.Prio({ i })),
-      P.mapToken(P.int, (value, i) => node.Int({ value, i })),
-      P.mapToken(P.regex(/\.[a-z0-9_-]+/), (tag, i) => node.Tag({ tag: tag[0].slice(1), i })),
+      P.mapToken(P.literal("priority", "prio"), (_, i) => Expr.Expr.Prio({ i })),
+      P.mapToken(P.int, (value, i) => Expr.Expr.Int({ value, i })),
+      P.mapToken(P.regex(/\.[a-z0-9_-]+/), (tag, i) => Expr.Expr.Tag({ tag: tag[0].slice(1), i })),
     ]),
 );
 
@@ -164,7 +161,7 @@ function interpret(root: Expr.Expr): Effect.Effect<NonEmptyReadonlyArray<Expr.Op
           const a = yield* Expr.expectKind(expr.expr, Expr.Kind.Bool);
 
           yield* step2(acc, a);
-          acc.push(op.Not());
+          acc.push(Expr.Op.Not());
 
           break;
         }
@@ -175,7 +172,7 @@ function interpret(root: Expr.Expr): Effect.Effect<NonEmptyReadonlyArray<Expr.Op
 
           yield* step2(acc, a);
           yield* step2(acc, b);
-          acc.push(op.Comp({ op: Expr.compOp(expr) }));
+          acc.push(Expr.Op.Comp({ op: Expr.compOp(expr) }));
 
           break;
         }
@@ -188,7 +185,7 @@ function interpret(root: Expr.Expr): Effect.Effect<NonEmptyReadonlyArray<Expr.Op
 
           yield* step2(acc, a);
           yield* step2(acc, b);
-          acc.push(op.Comp({ op: Expr.compOp(expr) }));
+          acc.push(Expr.Op.Comp({ op: Expr.compOp(expr) }));
 
           break;
         }
@@ -199,7 +196,7 @@ function interpret(root: Expr.Expr): Effect.Effect<NonEmptyReadonlyArray<Expr.Op
 
           yield* step2(acc, a);
           yield* step2(acc, b);
-          acc.push(op.Comp({ op: Expr.compOp(expr) }));
+          acc.push(Expr.Op.Comp({ op: Expr.compOp(expr) }));
 
           break;
         }
@@ -229,8 +226,16 @@ export const filter: {
         stack.push(op.value);
         break;
       }
+      case "Bool": {
+        stack.push(op.value ? 1 : 0);
+        break;
+      }
       case "Tag": {
         stack.push(self.info.tags.includes(op.tag) ? 1 : 0);
+        break;
+      }
+      case "Closed": {
+        stack.push(self.info.closed ? 1 : 0);
         break;
       }
       case "Not": {
@@ -274,6 +279,9 @@ export const filter: {
           }
         }
         break;
+      }
+      default: {
+        unreachable(op);
       }
     }
   }

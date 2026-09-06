@@ -1,6 +1,7 @@
 ---
 title: "Simple MCP for agents"
 priority: 50
+closed: true
 tags: mcp
 ---
 

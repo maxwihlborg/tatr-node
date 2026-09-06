@@ -1,4 +1,4 @@
-import { Effect, type Data } from "effect";
+import { Data, Effect } from "effect";
 import { ParseError } from "../lib/parser.js";
 
 export const Kind = {
@@ -26,6 +26,7 @@ export type BoolExpr = Data.TaggedEnum<{
 }>;
 
 export type Expr = IntExpr | BoolExpr;
+export const Expr = Data.taggedEnum<Expr>();
 
 export const _kindOf = {
   Prio: Kind.Int,
@@ -55,10 +56,13 @@ export type CompOp = "lt" | "gt" | "lte" | "gte" | "eq" | "neq" | "and" | "or";
 export type Op = Data.TaggedEnum<{
   Prio: {};
   Int: { value: number };
+  Bool: { value: boolean };
   Tag: { tag: string };
+  Closed: {};
   Not: {};
   Comp: { op: CompOp };
 }>;
+export const Op = Data.taggedEnum<Op>();
 
 export const ExprOp = {
   And: "and",

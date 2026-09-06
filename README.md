@@ -71,10 +71,40 @@ Expected 'boolean' expr, got 'int' expr
 (`modified`, `mod`), and `btime` (`created`). The default is
 `-priority, title`. Pass `--no-sort` to leave the tasks in directory order.
 
+## Agents
+
+`tatr show <id> -f agent` prints a task as a tagged block with its path, and
+`-f json` prints the same as one object, for handing to something that reads
+rather than parses.
+
+`tatr mcp` speaks MCP over stdio, so an agent can reach tasks without shelling
+out at all:
+
+```json
+{
+  "mcpServers": {
+    "tatr": { "command": "tatr", "args": ["mcp"] }
+  }
+}
+```
+
+| tool          |                                                                     |
+| ------------- | ------------------------------------------------------------------- |
+| `list_tasks`  | filtered by `tags`, `minPriority`, `maxPriority`, `status`, `limit` |
+| `show_task`   | one task by id, front matter and body                               |
+| `create_task` | `title` with optional `tags`, `priority` and `body`                 |
+
+Every tool takes a `cwd`, the directory to resolve `tatr.config.yaml` from, so
+one server answers for whatever repo the agent is working in. Without it the
+server's own working directory is used. There is no tool for changing a task
+yet: writing front matter back needs a yaml serializer that does not exist.
+
 ## Layout
 
 ```
 apps/cli/    the tatr command
   src/lib/   parser combinators backing the query and order languages
+  src/lsp/   the language server
+  src/mcp/   the mcp server
 tasks/       the tasks themselves
 ```

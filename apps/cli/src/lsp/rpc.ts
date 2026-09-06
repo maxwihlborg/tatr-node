@@ -10,7 +10,14 @@ import type {
   HoverParams,
   ReferenceParams,
 } from "vscode-languageserver-protocol";
-import { CodeAction, CompletionList, Hover, InitializeResult, Location } from "./schema.js";
+import {
+  CodeAction,
+  CompletionList,
+  Hover,
+  InitializeParams,
+  InitializeResult,
+  Location,
+} from "./schema.js";
 
 /**
  * Payloads are handed over as they came off the wire, the types are the
@@ -26,7 +33,7 @@ export const LanguageServerRpcGroup = RpcGroup.make(
     success: Schema.String,
   }),
   Rpc.make("initialize", {
-    payload: Schema.Unknown,
+    payload: InitializeParams,
     success: InitializeResult,
   }),
   Rpc.make("initialized", {

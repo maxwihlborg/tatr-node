@@ -8,10 +8,20 @@ import { newTask } from "./commands/new-task.js";
 import { showRoot } from "./commands/show-root.js";
 import { showTask } from "./commands/show-task.js";
 import { lspStart } from "./lsp/index.js";
+import { mcpStart } from "./mcp/index.js";
 
 const cli = pipe(
   Command.make("tatr"), //
-  Command.withSubcommands([initConfig, listTasks, lspStart, mintId, newTask, showRoot, showTask]),
+  Command.withSubcommands([
+    initConfig,
+    listTasks,
+    lspStart,
+    mcpStart,
+    mintId,
+    newTask,
+    showRoot,
+    showTask,
+  ]),
 );
 
 function abort(message: string) {
