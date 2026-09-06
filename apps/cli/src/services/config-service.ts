@@ -1,4 +1,4 @@
-import { Context, Data, Path, Effect, Layer, FileSystem, pipe, Schema } from "effect";
+import { Context, Data, Path, Effect, Layer, FileSystem, pipe, Schema, Option } from "effect";
 import { FileUtils } from "./file-utils.js";
 import { fromYamlString } from "../lib/schema.js";
 
@@ -137,15 +137,32 @@ export class ConfigService extends Context.Service<ConfigService>()("@tatr/cli/C
       return path.basename(file, TASK_EXT);
     }
 
+    /** The id of a file that is a task, which is a markdown file sitting
+     * directly in the task dir, and nothing for any other file. */
+    function taskIdOfFileIn(taskDir: string, file: string): Option.Option<string> {
+      if (path.dirname(file) === taskDir && path.extname(file) === TASK_EXT) {
+        return Option.some(taskIdOf(file));
+      }
+      return Option.none();
+    }
+
+    /** Where the repo the config governs starts, which is as wide as a search
+     * for references should reach. */
+    function getRootDirFromRootUri(rootUri: string) {
+      return Effect.map(findConfigPathFrom(rootUri), path.dirname);
+    }
+
     /** Every task file of a dir, for callers globbing one themselves. */
     const globPattern = `*${TASK_EXT}`;
 
     return {
+      getRootDirFromRootUri,
       getTaskDirFromRootUri,
       getTaskFilePath,
       getTaskFilePathFromRootUri,
       globPattern,
       taskIdOf,
+      taskIdOfFileIn,
       findConfigPath,
       getTaskDir,
       getConfig,

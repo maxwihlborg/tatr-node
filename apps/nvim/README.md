@@ -122,7 +122,15 @@ With that attached, on a line holding `[<id>]:` or `MARKER(<id>):`:
 | ------ | ------------------------------------------------------------------------------------------------ |
 | `grd`  | jumps to the task file, like `:TatrUpsert` without the creating                                  |
 | `K`    | shows the task, front matter and body                                                            |
+| `grr`  | lists every marker pointing at the task                                                          |
 | `gra`  | on a bare `TODO:`/`FIXME:`, creates the task and writes the id into the marker, like `:TatrTodo` |
+
+`grr` also works anywhere inside a task file, where the task the file is stands
+in for an id under the cursor. It searches with `ripgrep`, so it sees what is on
+disk and skips whatever the repo ignores — a marker in an unsaved buffer is not
+in the list yet. The task file itself is included as the declaration, which
+clients ask for with `includeDeclaration`; `vim.lsp.buf.references()` does,
+`fzf-lua`'s `lsp_references` does not unless told to.
 
 `root_markers` is only how neovim decides where to attach a client — the server
 resolves `tatr.config.yaml` per request, walking up from the file the request is

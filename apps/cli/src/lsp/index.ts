@@ -41,6 +41,7 @@ class TatrLanguageServer extends Context.Service<TatrLanguageServer>()(
       const app = yield* AppService;
       const config = yield* ConfigService;
       const fs = yield* FileSystem.FileSystem;
+      const fu = yield* FileUtils;
       const mint = yield* Mint;
       const path = yield* Path.Path;
 
@@ -104,9 +105,7 @@ class TatrLanguageServer extends Context.Service<TatrLanguageServer>()(
 
       function getTaskInDocument(textDocument: TextDocumentIdentifier, id: string) {
         return path.fromFileUrl(new URL(textDocument.uri)).pipe(
-          Effect.flatMap((fileUrl) =>
-            config.getTaskFilePathFromRootUri(path.dirname(fileUrl), id),
-          ),
+          Effect.flatMap((fileUrl) => config.getTaskFilePathFromRootUri(path.dirname(fileUrl), id)),
           Effect.flatMap(app.readTask),
         );
       }
@@ -157,11 +156,11 @@ class TatrLanguageServer extends Context.Service<TatrLanguageServer>()(
         },
         ["initialize"]: () => {
           return Effect.succeed({
-            // feat(DAENH148NGQBE): Support references
             capabilities: {
               textDocumentSync: { openClose: true, change: INCREMENTAL_SYNC },
               definitionProvider: true,
               hoverProvider: true,
+              referencesProvider: true,
               codeActionProvider: true,
               completionProvider: { triggerCharacters: ["[", "("] },
             },
@@ -219,6 +218,72 @@ class TatrLanguageServer extends Context.Service<TatrLanguageServer>()(
                 return Effect.as(Effect.logDebug(err.message), null);
               default: {
                 return Effect.succeed(null);
+              }
+            }
+          }),
+        ),
+        ["textDocument/references"]: Effect.fnUntraced(
+          function* ({ textDocument, position, context }) {
+            const file = yield* path.fromFileUrl(new URL(textDocument.uri));
+            const from = path.dirname(file);
+
+            let id = yield* getIdAtPosition(textDocument, position);
+
+            // Off an id inside a task file, the task the file *is* stands in
+            // for the one under the cursor: asking for references anywhere in
+            // a task is asking who points at that task
+            if (Option.isNone(id)) {
+              const taskDir = yield* config.getTaskDirFromRootUri(from);
+
+              id = config.taskIdOfFileIn(taskDir, file);
+            }
+
+            if (Option.isNone(id)) {
+              return [];
+            }
+
+            const root = yield* config.getRootDirFromRootUri(from);
+
+            const references = yield* fu.grep(id.value, root).pipe(
+              // The id is a plain word, so a hit is only a reference where it
+              // is written as one, which is the same call `definition` makes
+              Stream.filter((match) =>
+                Option.contains(idAt(match.text, match.character), id.value),
+              ),
+              Stream.mapEffect((match) =>
+                Effect.map(path.toFileUrl(match.file), (uri) => ({
+                  uri,
+                  range: {
+                    start: { line: match.line, character: match.character },
+                    end: { line: match.line, character: match.character + match.length },
+                  },
+                })),
+              ),
+              Stream.runCollect,
+            );
+
+            if (!context.includeDeclaration) {
+              return references;
+            }
+
+            // No search finds the declaration: a task's id is in the name of
+            // its file, not in anything the file holds. Asking the same way
+            // `definition` does covers the task the client has not written yet
+            const declaration = yield* Effect.option(getTaskUri(textDocument, id.value));
+
+            if (Option.isNone(declaration)) {
+              return references;
+            }
+
+            return [{ uri: declaration.value, range: TASK_START }, ...references];
+          },
+          Effect.catch((err) => {
+            switch (err._tag) {
+              case "ConfigError":
+              case "BadArgument":
+                return Effect.as(Effect.logDebug(err.message), []);
+              default: {
+                return Effect.succeed([]);
               }
             }
           }),

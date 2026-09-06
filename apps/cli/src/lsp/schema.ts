@@ -23,6 +23,7 @@ export const InitializeResult = Schema.Struct({
     }),
     definitionProvider: Schema.Boolean,
     hoverProvider: Schema.Boolean,
+    referencesProvider: Schema.Boolean,
     codeActionProvider: Schema.Boolean,
     completionProvider: Schema.Struct({
       triggerCharacters: Schema.Array(Schema.String),

@@ -8,6 +8,7 @@ import type {
   DidCloseTextDocumentParams,
   DidOpenTextDocumentParams,
   HoverParams,
+  ReferenceParams,
 } from "vscode-languageserver-protocol";
 import { CodeAction, CompletionList, Hover, InitializeResult, Location } from "./schema.js";
 
@@ -55,6 +56,10 @@ export const LanguageServerRpcGroup = RpcGroup.make(
   Rpc.make("textDocument/definition", {
     payload: Unchecked<DefinitionParams>(),
     success: Schema.NullOr(Location),
+  }),
+  Rpc.make("textDocument/references", {
+    payload: Unchecked<ReferenceParams>(),
+    success: Schema.Array(Location),
   }),
   Rpc.make("textDocument/hover", {
     payload: Unchecked<HoverParams>(),
