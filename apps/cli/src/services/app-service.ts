@@ -1,13 +1,46 @@
-import { Cause, Context, pipe, Data, Effect, Layer, Option, Stream, Struct } from "effect";
+import {
+  Cause,
+  Context,
+  String,
+  pipe,
+  Data,
+  Effect,
+  Layer,
+  Option,
+  Stream,
+  Struct,
+  SchemaError,
+  PlatformError,
+} from "effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
-import { TaskInfo, type Task } from "../schema.js";
+import { TaskInfo, type Task, TaskWithBody } from "../schema.js";
 import { ConfigError, ConfigService } from "./config-service.js";
 import { FileUtils } from "./file-utils.js";
 
 export class TaskAlreadyExistError extends Data.TaggedError("TaskAlreadyExistError")<{
   readonly id: string;
 }> {}
+
+export type TaskParseErrorReason = Data.TaggedEnum<{
+  YamlParseError: { cause: SchemaError.SchemaError };
+  PlatformError: { cause: PlatformError.PlatformError };
+  Invalid: { message: string };
+}>;
+export const TaskParseErrorReason = Data.taggedEnum<TaskParseErrorReason>();
+
+export class TaskParseError extends Data.TaggedError("TaskParseError")<{
+  file: string;
+  reason: TaskParseErrorReason;
+}> {
+  override get message() {
+    return `${this.file}: ${TaskParseErrorReason.$match(this.reason, {
+      Invalid: (reason) => reason.message,
+      YamlParseError: (reason) => reason.cause.message,
+      PlatformError: (reason) => reason.cause.message,
+    })}`;
+  }
+}
 
 export class TaskError extends Data.TaggedError("TaskError")<{
   readonly file: string;
@@ -22,7 +55,7 @@ export class AppService extends Context.Service<AppService>()("@tatr/cli/AppServ
     const config = yield* ConfigService;
 
     function listFilesIn(root: string) {
-      return fu.glob("*.md", {
+      return fu.glob(config.globPattern, {
         cwd: root,
         absolute: true,
       });
@@ -72,7 +105,7 @@ export class AppService extends Context.Service<AppService>()("@tatr/cli/AppServ
     }
 
     function readTask(file: string): Effect.Effect<Task, TaskError> {
-      return Effect.succeed({ file, id: path.basename(file, ".md") }).pipe(
+      return Effect.succeed({ file, id: config.taskIdOf(file) }).pipe(
         Effect.bind("stat", () => fs.stat(file)),
         Effect.bind("info", () => {
           return extractFrontMatter(fileLines(file)).pipe(
@@ -100,7 +133,7 @@ export class AppService extends Context.Service<AppService>()("@tatr/cli/AppServ
      * readers with a copy fresher than the file, such as an editor buffer.
      */
     function parseTask(file: string, text: string) {
-      return Effect.succeed({ file, id: path.basename(file, ".md") }).pipe(
+      return Effect.succeed({ file, id: config.taskIdOf(file) }).pipe(
         Effect.bind("info", () =>
           pipe(
             Stream.succeed(text),
@@ -110,6 +143,110 @@ export class AppService extends Context.Service<AppService>()("@tatr/cli/AppServ
           ),
         ),
         Effect.catch((cause) => new TaskError({ file, cause })),
+      );
+    }
+
+    function parseFullTask(file: string) {
+      type State = Data.TaggedEnum<{
+        Open: {};
+        Header: {
+          content: string;
+        };
+        Task: {
+          id: string;
+          file: string;
+          info: TaskInfo;
+          body: string;
+        };
+      }>;
+      const State = Data.taggedEnum<State>();
+
+      return fs.stream(file).pipe(
+        Stream.decodeText(),
+        Stream.splitLines,
+        Stream.runFoldEffect(
+          (): State => State.Open(),
+          (acc, line) => {
+            return State.$match(acc, {
+              Open: () => {
+                if (line !== "---") {
+                  return Effect.fail(
+                    new TaskParseError({
+                      file,
+                      reason: TaskParseErrorReason.Invalid({
+                        message: "No yaml frontmatter",
+                      }),
+                    }),
+                  );
+                }
+                return Effect.succeed(
+                  State.Header({
+                    content: "",
+                  }),
+                );
+              },
+              Header: (header) => {
+                if (line !== "---") {
+                  return Effect.succeed(
+                    Struct.evolve(header, {
+                      content: String.concat(line + "\n"),
+                    }),
+                  );
+                }
+                return Effect.mapBoth(TaskInfo.decodeYaml(header.content), {
+                  onSuccess: (info) =>
+                    State.Task({
+                      id: config.taskIdOf(file),
+                      file,
+                      info: info,
+                      body: "",
+                    }),
+                  onFailure: (err) =>
+                    new TaskParseError({
+                      file,
+                      reason: TaskParseErrorReason.YamlParseError({
+                        cause: err,
+                      }),
+                    }),
+                });
+              },
+              Task: (b) => {
+                return Effect.succeed(
+                  Struct.evolve(b, {
+                    body: String.concat(line + "\n"),
+                  }),
+                );
+              },
+            });
+          },
+        ),
+        Effect.catchTag("PlatformError", (cause) =>
+          Effect.fail(
+            new TaskParseError({
+              file,
+              reason: TaskParseErrorReason.PlatformError({
+                cause,
+              }),
+            }),
+          ),
+        ),
+        Effect.filterOrFail(
+          State.$is("Task"),
+          () =>
+            new TaskParseError({
+              file,
+              reason: TaskParseErrorReason.Invalid({
+                message: "No closing frontmatter",
+              }),
+            }),
+        ),
+        Effect.map((content) =>
+          TaskWithBody.make(
+            Struct.evolve(content, {
+              body: String.trim,
+            }),
+          ),
+        ),
       );
     }
 
@@ -144,7 +281,7 @@ export class AppService extends Context.Service<AppService>()("@tatr/cli/AppServ
     }
 
     const saveTask = Effect.fnUntraced(function* (id: string, task: TaskFields) {
-      const filePath = path.join(yield* config.getTaskDir, `${id}.md`);
+      const filePath = yield* config.getTaskFilePath(id);
 
       yield* Effect.when(Effect.fail(new TaskAlreadyExistError({ id })), fs.exists(filePath));
 
@@ -157,6 +294,7 @@ export class AppService extends Context.Service<AppService>()("@tatr/cli/AppServ
       formatTask,
       listFileInfo,
       listFilesIn,
+      parseFullTask,
       parseTask,
       readTask,
       saveTask,

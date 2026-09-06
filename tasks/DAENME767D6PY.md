@@ -1,12 +1,13 @@
 ---
 title: "Add json and or agent format"
 priority: 50
+closed: true
 tags: cli, show
 ---
 
 # Goal
 
-Integrate a bit better with agents that would like to now the file path etc
+Integrate a bit better with agents that would like to know the file path etc
 
 # Questions
 

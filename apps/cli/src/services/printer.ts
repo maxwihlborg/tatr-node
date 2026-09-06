@@ -1,6 +1,13 @@
 import * as clr from "colorette";
 import { Context, Effect, Layer, Path } from "effect";
-import type { Task } from "../schema.js";
+import type { Task, TaskWithBody } from "../schema.js";
+
+const escapeXml = (value: string) =>
+  value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
 
 export class Printer extends Context.Service<Printer>()("@tatr/cli/Printer", {
   make: Effect.gen(function* () {
@@ -33,6 +40,19 @@ export class Printer extends Context.Service<Printer>()("@tatr/cli/Printer", {
     return {
       vimgrep(task: Task) {
         return `${path.relative(process.cwd(), task.file)}:1:1 [priority: ${task.info.priority}${plainTags(task.info.tags)}] ${task.info.title}`;
+      },
+      /** The body is written verbatim: it is markdown meant to be read, and
+       * escaping it would only make it harder to. */
+      agentTask(task: TaskWithBody) {
+        return [
+          `<task id="${escapeXml(task.id)}" file="${escapeXml(task.file)}">`,
+          `<title>${escapeXml(task.info.title)}</title>`,
+          `<priority>${task.info.priority}</priority>`,
+          ...(task.info.tags.length ? [`<tags>${escapeXml(task.info.tags.join(", "))}</tags>`] : []),
+          `<status>${task.info.closed ? "closed" : "open"}</status>`,
+          ...(task.body ? ["<body>", task.body, "</body>"] : []),
+          "</task>",
+        ].join("\n");
       },
       showTask(task: Task) {
         return `${task.id}: ${clr.gray("[priority:")} ${richPrio(task.info.priority)}${richTags(task.info.tags)}${clr.gray("]")} ${task.info.title}`;

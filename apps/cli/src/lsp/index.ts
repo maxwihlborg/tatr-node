@@ -104,8 +104,10 @@ class TatrLanguageServer extends Context.Service<TatrLanguageServer>()(
 
       function getTaskInDocument(textDocument: TextDocumentIdentifier, id: string) {
         return path.fromFileUrl(new URL(textDocument.uri)).pipe(
-          Effect.flatMap((fileUrl) => config.getTaskDirFromRootUri(path.dirname(fileUrl))),
-          Effect.flatMap((taskDir) => app.readTask(path.resolve(taskDir, `${id}.md`))),
+          Effect.flatMap((fileUrl) =>
+            config.getTaskFilePathFromRootUri(path.dirname(fileUrl), id),
+          ),
+          Effect.flatMap(app.readTask),
         );
       }
 
@@ -278,11 +280,11 @@ class TatrLanguageServer extends Context.Service<TatrLanguageServer>()(
             }
 
             const id = yield* mint.nextId;
-            const taskDir = yield* Effect.flatMap(
+            const taskFile = yield* Effect.flatMap(
               path.fromFileUrl(new URL(textDocument.uri)),
-              (file) => config.getTaskDirFromRootUri(path.dirname(file)),
+              (file) => config.getTaskFilePathFromRootUri(path.dirname(file), id),
             );
-            const taskUri = yield* path.toFileUrl(path.resolve(taskDir, `${id}.md`));
+            const taskUri = yield* path.toFileUrl(taskFile);
 
             yield* rememberTask(id, taskUri);
 

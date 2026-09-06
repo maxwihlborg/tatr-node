@@ -39,3 +39,15 @@ export class Task extends Schema.Opaque()(
   static encode = Schema.encodeEffect(this);
   static decode = Schema.decodeEffect(this);
 }
+
+export class TaskWithBody extends Schema.Opaque<TaskWithBody>()(
+  Schema.Struct({
+    id: Schema.String,
+    file: Schema.String,
+    info: TaskInfo,
+    body: Schema.String,
+  }),
+) {
+  static encode = Schema.encodeEffect(this);
+  static decode = Schema.decodeEffect(this);
+}

@@ -36,6 +36,9 @@ const main = pipe(
       case "TaskError": {
         return abort(`Could not read ${err.file}`);
       }
+      case "TaskParseError": {
+        return abort(err.message);
+      }
     }
 
     return Effect.die(err);

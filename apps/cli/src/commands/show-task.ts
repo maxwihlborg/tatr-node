@@ -1,20 +1,12 @@
-import {
-  Console,
-  Data,
-  Effect,
-  FileSystem,
-  Layer,
-  Path,
-  pipe,
-  Stdio,
-  Stream,
-  String,
-} from "effect";
+import { Console, Effect, FileSystem, Layer, pipe } from "effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
-import { ConfigService, FileUtils } from "../services";
 import { unreachable } from "../lib/functions";
+import { AppService, ConfigService, FileUtils, Printer } from "../services";
 
-const ShowLayer = ConfigService.layer.pipe(Layer.provide(FileUtils.layer));
+const ShowLayer = Layer.mergeAll(AppService.layer, Printer.layer).pipe(
+  Layer.provideMerge(ConfigService.layer),
+  Layer.provide(FileUtils.layer),
+);
 
 export const showTask = pipe(
   Command.make("show", {
@@ -22,71 +14,49 @@ export const showTask = pipe(
       Argument.string("id"), //
       Argument.withDescription("Id of the task"),
     ),
-    resolvePath: pipe(
-      Flag.boolean("resolve-path"),
-      Flag.withDescription("Print the path of the task instead of its body"),
+    format: pipe(
+      Flag.choice("format", ["body", "json", "agent", "filepath"]),
+      Flag.withAlias("f"),
+      Flag.withDescription("Output format"),
+      Flag.withDefault("body"),
     ),
   }),
   Command.withDescription("Print the body of a task, front matter stripped"),
   Command.withHandler(
-    Effect.fnUntraced(function* ({ id, resolvePath }) {
+    Effect.fnUntraced(function* ({ id, format }) {
       const config = yield* ConfigService;
-      const path = yield* Path.Path;
       const fs = yield* FileSystem.FileSystem;
-      const stdio = yield* Stdio.Stdio;
+      const app = yield* AppService;
+      const printer = yield* Printer;
 
-      const root = yield* config.getTaskDir;
-
-      const filePath = path.resolve(root, `${id}.md`);
+      const filePath = yield* config.getTaskFilePath(id);
 
       if (!(yield* fs.exists(filePath))) {
         process.exitCode = 1;
         return yield* Console.log(`No task with id ${id} found!`);
       }
 
-      if (resolvePath) {
+      // Before the parse: where a task lives is answerable even when what it
+      // holds is not, and that is the answer an editor jumping to it wants.
+      if (format === "filepath") {
         return yield* Console.log(filePath);
-      } else {
-        type State = Data.TaggedEnum<{
-          Open: {};
-          Skip: {};
-          Print: {};
-        }>;
-        const State = Data.taggedEnum<State>();
+      }
 
-        let state: State = State.Open();
+      const task = yield* app.parseFullTask(filePath);
 
-        yield* fs.stream(filePath).pipe(
-          Stream.decodeText(),
-          Stream.splitLines,
-          Stream.filter((line) => {
-            switch (state._tag) {
-              case "Print":
-                return true;
-              case "Open": {
-                if (line === "---") {
-                  state = State.Skip();
-                  return false;
-                } else {
-                  state = State.Print();
-                  return true;
-                }
-              }
-              case "Skip": {
-                if (line === "---") {
-                  state = State.Print();
-                }
-                return false;
-              }
-              default: {
-                unreachable(state);
-              }
-            }
-          }),
-          Stream.dropWhile((line) => String.isEmpty(line.trim())),
-          Stream.map((line) => `${line}\n`),
-          Stream.run(stdio.stdout({ endOnDone: true })),
-        );
+      switch (format) {
+        case "body": {
+          return yield* Console.log(task.body);
+        }
+        case "json": {
+          return yield* Console.log(JSON.stringify(task));
+        }
+        case "agent": {
+          return yield* Console.log(printer.agentTask(task));
+        }
+        default: {
+          unreachable(format);
+        }
       }
     }),
   ),

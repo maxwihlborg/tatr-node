@@ -4,6 +4,11 @@ import { fromYamlString } from "../lib/schema.js";
 
 export const CONFIG_NAME = "tatr.config.yaml";
 
+/** A task is a markdown file in the task dir named after its id. Local on
+ * purpose: the day this comes out of the config, everything that depends on it
+ * is already here. */
+const TASK_EXT = ".md";
+
 export type ConfigErrorReason = Data.TaggedEnum<{
   AlreadyExist: { path: string };
   Invalid: { path: string; cause: string };
@@ -114,8 +119,33 @@ export class ConfigService extends Context.Service<ConfigService>()("@tatr/cli/C
       );
     }
 
+    function taskFilePathIn(dir: string, id: string) {
+      return path.format({ dir, name: id, ext: TASK_EXT });
+    }
+
+    function getTaskFilePath(id: string) {
+      return Effect.map(getTaskDir, (dir) => taskFilePathIn(dir, id));
+    }
+
+    function getTaskFilePathFromRootUri(rootUri: string, id: string) {
+      return Effect.map(getTaskDirFromRootUri(rootUri), (dir) => taskFilePathIn(dir, id));
+    }
+
+    /** The other half of {@link getTaskFilePath}: a task file is named after
+     * its id, so its name is where the id is read back from. */
+    function taskIdOf(file: string) {
+      return path.basename(file, TASK_EXT);
+    }
+
+    /** Every task file of a dir, for callers globbing one themselves. */
+    const globPattern = `*${TASK_EXT}`;
+
     return {
       getTaskDirFromRootUri,
+      getTaskFilePath,
+      getTaskFilePathFromRootUri,
+      globPattern,
+      taskIdOf,
       findConfigPath,
       getTaskDir,
       getConfig,

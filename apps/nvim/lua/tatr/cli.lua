@@ -104,11 +104,11 @@ function M.show(opts, cb)
   run({ cmd = opts.cmd, args = { "show", opts.id } }, cb)
 end
 
---- `tatr show <id> --resolve-path`: where the task with this id lives.
+--- `tatr show <id> -f filepath`: where the task with this id lives.
 ---@param opts { cmd: string[], id: string }
 ---@param cb fun(file: string?, err: string?)
 function M.path(opts, cb)
-  run({ cmd = opts.cmd, args = { "show", opts.id, "--resolve-path" } }, function(lines, err)
+  run({ cmd = opts.cmd, args = { "show", opts.id, "-f", "filepath" } }, function(lines, err)
     if not lines then
       return cb(nil, err)
     end
