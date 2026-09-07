@@ -14,6 +14,7 @@ const MARKERS: Record<string, ReadonlyArray<string>> = {
   FEAT: ["feature"],
 };
 
+// FIXME(DAF9GK681Q510): Should make colon optional
 const MARKER = new RegExp(`\\b(${Object.keys(MARKERS).join("|")}):`, "i");
 
 const TAGS = new Map(Object.entries(MARKERS).map(([word, tags]) => [word.toLowerCase(), tags]));

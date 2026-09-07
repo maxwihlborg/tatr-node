@@ -57,7 +57,7 @@ export class Printer extends Context.Service<Printer>()("@tatr/cli/Printer", {
         ].join("\n");
       },
       showTask(task: Task) {
-        return `${task.id}: ${clr.gray("[priority:")} ${richPrio(task.info.priority)}${richTags(task.info.tags)}${clr.gray("]")} ${task.info.title}`;
+        return `${clr.yellow(task.id)}: ${clr.gray("[priority:")} ${richPrio(task.info.priority)}${richTags(task.info.tags)}${clr.gray("]")} ${task.info.title}`;
       },
     };
   }),

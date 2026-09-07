@@ -1,10 +1,9 @@
-import { Array, Effect, FileSystem, Option, Schema, Stream, Struct } from "effect";
+import { Array, Effect, FileSystem, Option, Order, Schema, Stream, Struct } from "effect";
 import type { NonEmptyReadonlyArray } from "effect/Array";
 import { Tool, Toolkit } from "effect/unstable/ai";
 import { runCollectSorted } from "../lib/functions.js";
-import { TaskWithBody } from "../schema.js";
 import { AppService, ConfigService, Expr, Mint, Query } from "../services/index.js";
-import { TaskSummary, TaskToolError } from "./schema.js";
+import { TaskDetail, TaskSummary, TaskToolError } from "./schema.js";
 
 /**
  * Where to look. A server is started once and asked about whatever repo the
@@ -111,11 +110,12 @@ class ListTasksParams extends Schema.Opaque<ListTasksParams>()(
         clauses.push([Expr.Op.Tag({ tag: tag.trim().toLowerCase() })]);
       }
 
-      const ops = Array.flatMap(clauses, (clause, index) =>
-        index === 0 ? clause : [...clause, Expr.Op.Comp({ op: "and" })],
+      return Option.liftPredicate(
+        Array.flatMap(clauses, (clause, index) =>
+          index === 0 ? clause : [...clause, Expr.Op.Comp({ op: "and" })],
+        ),
+        (ops) => Array.isReadonlyArrayNonEmpty(ops),
       );
-
-      return Option.liftPredicate(ops, (xs) => Array.isReadonlyArrayNonEmpty(xs));
     });
   }
 }
@@ -131,12 +131,14 @@ export const ListTasks = Tool.make("list_tasks", {
 });
 
 export const ShowTask = Tool.make("show_task", {
-  description: "Read one task of a tatr repo by its id, front matter and body.",
+  description:
+    "Read one task of a tatr repo by its id, front matter and body, " +
+    "along with the files mentioning that id.",
   parameters: Schema.Struct({
     cwd: Schema.OptionFromOptionalKey(Cwd),
     id: Id,
   }),
-  success: TaskWithBody,
+  success: TaskDetail,
   failure: TaskToolError,
 });
 
@@ -209,6 +211,11 @@ export const TaskHandlers = TaskToolkit.toLayer(
       return config.getTaskDirFromRootUri(Option.getOrElse(root, () => process.cwd()));
     }
 
+    /** What `rg` searches for references is the repo, not the task dir. */
+    function rootDirOf(root: Option.Option<string>) {
+      return config.getRootDirFromRootUri(Option.getOrElse(root, () => process.cwd()));
+    }
+
     return TaskToolkit.of({
       list_tasks: Effect.fnUntraced(
         function* (params) {
@@ -246,7 +253,17 @@ export const TaskHandlers = TaskToolkit.toLayer(
             });
           }
 
-          return yield* app.parseFullTask(file);
+          const references = yield* app.referencesOf(yield* rootDirOf(params.cwd), params.id).pipe(
+            Stream.map((match) => match.file),
+            runCollectSorted(Order.String),
+            Effect.map(Array.dedupe),
+            // A repo without `rg` is still a task we can read
+            Effect.orElseSucceed(() => []),
+          );
+
+          const task = yield* app.parseFullTask(file);
+
+          return TaskDetail.of(task, references);
         },
         Effect.catch((err) => Effect.fail(toToolError(err))),
       ),

@@ -14,6 +14,7 @@ import {
 } from "effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
+import { idAt } from "../lib/marker.js";
 import { TaskInfo, type Task, TaskWithBody } from "../schema.js";
 import { ConfigError, ConfigService } from "./config-service.js";
 import { FileUtils } from "./file-utils.js";
@@ -244,6 +245,12 @@ export class AppService extends Context.Service<AppService>()("@tatr/cli/AppServ
       );
     }
 
+    function referencesOf(root: string, id: string) {
+      return Stream.filter(fu.grep(id, root), (match) =>
+        Option.contains(idAt(match.text, match.character), id),
+      );
+    }
+
     const listFileInfo: Stream.Stream<Task, TaskError | ConfigError | Cause.UnknownError> = pipe(
       listFiles,
       Stream.filterMapEffect((file) => Effect.result(readTask(file))),
@@ -307,6 +314,7 @@ export class AppService extends Context.Service<AppService>()("@tatr/cli/AppServ
       parseFullTask,
       parseTask,
       readTask,
+      referencesOf,
       saveTask,
       saveTaskIn,
       updateTaskInfo,

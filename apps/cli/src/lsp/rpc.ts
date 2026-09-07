@@ -14,9 +14,9 @@ import type {
 import { TextDocumentIdentifier } from "vscode-languageserver-protocol";
 import { TextDocument, type DocumentUri } from "vscode-languageserver-textdocument";
 import { runCollectSorted } from "../lib/functions.js";
-import { AppService, byLocation, ConfigService, FileUtils, Mint } from "../services/index.js";
+import { idAt, idSpanAt, markerAt } from "../lib/marker.js";
+import { AppService, byLocation, ConfigService, Mint } from "../services/index.js";
 import { EMPTY_COMPLETION, INCREMENTAL_SYNC, REFERENCE_ITEM, TASK_START } from "./constants.js";
-import { idAt, idSpanAt, markerAt } from "./marker.js";
 import {
   CodeAction,
   CompletionItem,
@@ -104,7 +104,6 @@ export const LanguageServerRpcHandlers = LanguageServerRpcGroup.toLayer(
     const mint = yield* Mint;
     const app = yield* AppService;
     const fs = yield* FileSystem.FileSystem;
-    const fu = yield* FileUtils;
 
     const createdRef = yield* Ref.make<Record<string, CreatedTask>>({});
     const docsRef = yield* Ref.make<Record<DocumentUri, TextDocument>>({});
@@ -353,10 +352,7 @@ export const LanguageServerRpcHandlers = LanguageServerRpcGroup.toLayer(
 
           const root = yield* config.getRootDirFromRootUri(from);
 
-          const references = yield* fu.grep(id.value, root).pipe(
-            // The id is a plain word, so a hit is only a reference where it
-            // is written as one, which is the same call `definition` makes
-            Stream.filter((match) => Option.contains(idAt(match.text, match.character), id.value)),
+          const references = yield* app.referencesOf(root, id.value).pipe(
             runCollectSorted(byLocation),
             Effect.flatMap(
               Effect.forEach((match) =>

@@ -110,3 +110,18 @@ commands`. Check `tatr ls` before starting, and `tatr close <id>` when done.
 
 Comments are sparse and explain why a choice was made, not what the line does —
 match that density rather than annotating new code heavily.
+
+**This is a `jj` repo**, colocated with git, so a `.git` is there to be found and
+git reads the tree correctly. Never run a git command that writes. Git writing to
+the index or moving HEAD behind `jj`'s back leaves the two disagreeing about what
+the working copy is, and the operation is outside `jj op log`, so it is not
+undoable. Reading is fine — `git status`, `git diff`, `git log`, `git show`.
+Everything that changes anything goes through `jj`, or is left for a human to do.
+
+`.claude/settings.json` denies the writing subcommands rather than trusting this
+paragraph to be read: `add`, `am`, `apply`, `branch`, `checkout`, `cherry-pick`,
+`clean`, `commit`, `filter-branch`, `gc`, `merge`, `mv`, `pull`, `push`,
+`rebase`, `reset`, `restore`, `revert`, `rm`, `stash`, `switch`, `tag`,
+`update-ref`. A few of those read as well as write — `git branch` with no
+arguments only lists — and they are denied anyway, since `jj log` and
+`jj bookmark list` answer the same questions. Keep the two lists in step.
