@@ -198,10 +198,10 @@ function toToolError(err: {
 
 export const TaskHandlers = TaskToolkit.toLayer(
   Effect.gen(function* () {
-    const app = yield* AppService;
     const config = yield* ConfigService;
-    const fs = yield* FileSystem.FileSystem;
     const mint = yield* Mint;
+    const app = yield* AppService;
+    const fs = yield* FileSystem.FileSystem;
 
     const order = yield* Query.compileOrder(["-priority", "title"]);
 
@@ -209,7 +209,7 @@ export const TaskHandlers = TaskToolkit.toLayer(
       return config.getTaskDirFromRootUri(Option.getOrElse(root, () => process.cwd()));
     }
 
-    return {
+    return TaskToolkit.of({
       list_tasks: Effect.fnUntraced(
         function* (params) {
           const taskDir = yield* taskDirOf(params.cwd);
@@ -293,6 +293,6 @@ export const TaskHandlers = TaskToolkit.toLayer(
         },
         Effect.catch((err) => Effect.fail(toToolError(err))),
       ),
-    };
+    });
   }),
 );
