@@ -115,6 +115,25 @@ local function copy(selected)
   })
 end
 
+--- Close the task under the cursor, reporting whatever the cli said about it.
+---@param cfg TatrConfig
+---@return fun(selected: string[])
+local function close(cfg)
+  return function(selected)
+    local id = id_of(selected[1])
+    if not id then
+      return
+    end
+
+    local line, err = cli.close { cmd = cfg.cmd, id = id }
+    if not line then
+      return tatr.fail(err)
+    end
+
+    vim.notify(line, vim.log.levels.INFO, { title = "tatr" })
+  end
+end
+
 --- Pick a task with fzf-lua and open it. fzf does no matching of its own, each
 --- keystroke re-runs the query through the cli, the way `tatr ls --fzf` does.
 ---@param opts TatrConfig|{ query: string[] }|nil
@@ -138,6 +157,12 @@ function M.pick(opts)
   if cfg.fzf.copy then
     -- exec_silent: copying is no reason to leave the picker
     actions[cfg.fzf.copy] = { fn = copy, exec_silent = true }
+  end
+
+  if cfg.fzf.close then
+    -- reload: fzf re-runs the list command with the query as it stands, so the
+    -- task leaves an `--status=open` list without the picker going away
+    actions[cfg.fzf.close] = { fn = close(cfg), reload = true }
   end
 
   if cfg.fzf.cycle then

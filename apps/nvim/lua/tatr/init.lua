@@ -13,7 +13,7 @@ local M = {}
 ---@field markers table<string, string[]> comment marker -> tags TatrTodo gives the task
 ---@field prompt string picker prompt
 ---@field picker "auto"|"select" which ui to pick with, auto prefers fzf-lua
----@field fzf { keys: table<string, string>, copy: string|false, cycle: string|false, status: string, opts: table, query_delay: number } see tatr.fzf
+---@field fzf { keys: table<string, string>, copy: string|false, close: string|false, cycle: string|false, status: string, opts: table, query_delay: number } see tatr.fzf
 M.config = {
   cmd = { "tatr" },
   args = {},
@@ -37,6 +37,9 @@ M.config = {
     },
     -- key that yanks the id of the task under the cursor, false to disable
     copy = "ctrl-y",
+    -- key that closes the task under the cursor, false to disable. ctrl-x is
+    -- what fzf-lua's own pickers use for the destructive action in a list
+    close = "ctrl-x",
     -- key that cycles open -> closed -> all, false to disable. ctrl-g is what
     -- fzf-lua's own pickers use for switching what they list
     cycle = "ctrl-g",

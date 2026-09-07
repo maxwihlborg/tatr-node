@@ -46,7 +46,7 @@ export const showTask = pipe(
 
       switch (format) {
         case "body": {
-          return yield* Console.log(task.body);
+          return yield* Console.log(task.body.trim());
         }
         case "json": {
           return yield* Console.log(JSON.stringify(task));

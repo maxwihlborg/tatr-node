@@ -94,7 +94,8 @@ Entries are `tatr ls` output verbatim, colours and all, the preview is
 `ctrl-g` cycles which tasks are listed, `open` → `closed` → `all`, with the
 current one bracketed in the hint line fzf-lua draws under the count
 (`:: <ctrl-g> to [open] - closed - all`). `ctrl-y` yanks the id of the task
-under the cursor without leaving the picker,
+under the cursor without leaving the picker, `ctrl-x` closes that task and
+reloads the list in place, so it drops out of an `open` list as you watch,
 and `enter`/`ctrl-s`/`ctrl-v`/`ctrl-t` open the task with
 `edit`/`split`/`vsplit`/`tabedit`. `require("tatr.fzf").pick(opts)` is the
 picker itself, and `opts.query` seeds the prompt.
@@ -175,6 +176,7 @@ Defaults, passed to `require("tatr").setup()`:
       ["ctrl-s"] = "split",
     },
     copy = "ctrl-y",   -- key that yanks the task id, false to disable
+    close = "ctrl-x",  -- key that closes the task, false to disable
     cycle = "ctrl-g",  -- key that cycles open -> closed -> all, false to disable
     status = "open",   -- which tasks the picker starts on
     query_delay = 150, -- ms fzf waits before re-running the query

@@ -117,6 +117,35 @@ function M.path(opts, cb)
   end)
 end
 
+--- `tatr close <id>`: mark the task closed, answer with what the cli said.
+--- The only synchronous call here: fzf reloads its list the moment the action
+--- returns, so the write has to have landed by then.
+---@param opts { cmd: string[], id: string }
+---@return string? line, string? err
+function M.close(opts)
+  local args = vim.deepcopy(opts.cmd)
+  local command = table.remove(args, 1)
+  vim.list_extend(args, { "close", opts.id })
+
+  local job = Job:new {
+    command = command,
+    args = args,
+  }
+
+  local ok, out = pcall(job.sync, job)
+  if not ok then
+    return nil, ("could not run %s: %s"):format(command, out)
+  end
+
+  if job.code ~= 0 then
+    -- a missing id is reported on stdout, the way the other calls have it
+    local err = vim.trim(table.concat(job:stderr_result(), "\n"))
+    return nil, err ~= "" and err or vim.trim(table.concat(out, "\n"))
+  end
+
+  return vim.trim(table.concat(out, "\n")), nil
+end
+
 --- `tatr ls -f json`, decoded.
 ---@param opts { cmd: string[], args: string[] }
 ---@param cb fun(tasks: TatrTask[]?, err: string?)
