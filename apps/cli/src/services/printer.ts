@@ -48,9 +48,11 @@ export class Printer extends Context.Service<Printer>()("@tatr/cli/Printer", {
           `<task id="${escapeXml(task.id)}" file="${escapeXml(task.file)}">`,
           `<title>${escapeXml(task.info.title)}</title>`,
           `<priority>${task.info.priority}</priority>`,
-          ...(task.info.tags.length ? [`<tags>${escapeXml(task.info.tags.join(", "))}</tags>`] : []),
+          ...(task.info.tags.length
+            ? [`<tags>${escapeXml(task.info.tags.join(", "))}</tags>`]
+            : []),
           `<status>${task.info.closed ? "closed" : "open"}</status>`,
-          ...(task.body ? ["<body>", task.body, "</body>"] : []),
+          ...(task.body ? ["<body>", task.body.trim(), "</body>"] : []),
           "</task>",
         ].join("\n");
       },

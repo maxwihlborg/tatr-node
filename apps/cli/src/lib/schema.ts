@@ -12,7 +12,7 @@ export const fromYamlStringTransform = SchemaTransformation.make<unknown, string
       try: () => Yaml.parse(text),
     }),
   ),
-  encode: SchemaGetter.forbidden(() => "Yaml encoding is not supported, yet"),
+  encode: SchemaGetter.forbidden(() => "Yaml encoding is not supported by effect"),
 });
 
 export const fromCrock32Transform = SchemaTransformation.make<Uint8Array, string>({

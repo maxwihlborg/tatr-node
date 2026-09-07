@@ -38,6 +38,7 @@ export class ConfigError extends Data.TaggedError("ConfigError")<{
 export class TatrConfig extends Schema.Opaque<TatrConfig>()(
   Schema.Struct({
     taskDir: Schema.String,
+    formatter: Schema.OptionFromOptionalKey(Schema.Literal("oxfmt")),
   }),
 ) {
   static decodeYaml = Schema.decodeEffect(fromYamlString(this));
@@ -131,14 +132,10 @@ export class ConfigService extends Context.Service<ConfigService>()("@tatr/cli/C
       return Effect.map(getTaskDirFromRootUri(rootUri), (dir) => taskFilePathIn(dir, id));
     }
 
-    /** The other half of {@link getTaskFilePath}: a task file is named after
-     * its id, so its name is where the id is read back from. */
     function taskIdOf(file: string) {
       return path.basename(file, TASK_EXT);
     }
 
-    /** The id of a file that is a task, which is a markdown file sitting
-     * directly in the task dir, and nothing for any other file. */
     function taskIdOfFileIn(taskDir: string, file: string): Option.Option<string> {
       if (path.dirname(file) === taskDir && path.extname(file) === TASK_EXT) {
         return Option.some(taskIdOf(file));
@@ -146,13 +143,10 @@ export class ConfigService extends Context.Service<ConfigService>()("@tatr/cli/C
       return Option.none();
     }
 
-    /** Where the repo the config governs starts, which is as wide as a search
-     * for references should reach. */
     function getRootDirFromRootUri(rootUri: string) {
       return Effect.map(findConfigPathFrom(rootUri), path.dirname);
     }
 
-    /** Every task file of a dir, for callers globbing one themselves. */
     const globPattern = `*${TASK_EXT}`;
 
     return {

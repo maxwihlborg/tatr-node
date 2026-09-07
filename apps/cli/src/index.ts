@@ -1,6 +1,7 @@
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
 import { Console, Effect, pipe } from "effect";
 import { Command } from "effect/unstable/cli";
+import { closeTask } from "./commands/close-task.js";
 import { initConfig } from "./commands/init-config.js";
 import { listTasks } from "./commands/list-tasks.js";
 import { mintId } from "./commands/mint-id.js";
@@ -13,6 +14,7 @@ import { mcpStart } from "./mcp/index.js";
 const cli = pipe(
   Command.make("tatr"), //
   Command.withSubcommands([
+    closeTask,
     initConfig,
     listTasks,
     lspStart,

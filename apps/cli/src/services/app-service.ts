@@ -240,13 +240,7 @@ export class AppService extends Context.Service<AppService>()("@tatr/cli/AppServ
               }),
             }),
         ),
-        Effect.map((content) =>
-          TaskWithBody.make(
-            Struct.evolve(content, {
-              body: String.trim,
-            }),
-          ),
-        ),
+        Effect.map((content) => TaskWithBody.make(content)),
       );
     }
 
@@ -265,26 +259,22 @@ export class AppService extends Context.Service<AppService>()("@tatr/cli/AppServ
     function formatTask(task: TaskFields) {
       return [
         "---",
-        `title: ${JSON.stringify(task.title)}`,
-        `priority: ${Option.getOrElse(task.priority, () => 50)}`,
-        ...Option.match(task.tags, {
-          onNone: () => [],
-          onSome: (tags) => [`tags: ${tags.join(", ")}`],
+        TaskInfo.formatYaml({
+          title: task.title,
+          priority: Option.getOrElse(task.priority, () => 50),
+          closed: false,
+          tags: Option.getOrElse(task.tags, () => []),
         }),
         "---",
         ...Option.match(task.body, {
           onNone: () => [],
-          onSome: (body) => ["", body, ""],
+          onSome: (body) => ["", body.trim(), ""],
         }),
         "\n",
       ].join("\n");
     }
 
-    const saveTaskIn = Effect.fnUntraced(function* (
-      taskDir: string,
-      id: string,
-      task: TaskFields,
-    ) {
+    const saveTaskIn = Effect.fnUntraced(function* (taskDir: string, id: string, task: TaskFields) {
       const filePath = config.taskFilePathIn(taskDir, id);
 
       yield* Effect.when(Effect.fail(new TaskAlreadyExistError({ id })), fs.exists(filePath));
@@ -298,6 +288,18 @@ export class AppService extends Context.Service<AppService>()("@tatr/cli/AppServ
       return yield* saveTaskIn(yield* config.getTaskDir, id, task);
     });
 
+    function updateTaskInfo(file: string, update: (info: TaskInfo) => TaskInfo) {
+      return Effect.flatMap(parseFullTask(file), (task) => {
+        const content = [
+          "---", //
+          TaskInfo.formatYaml(update(task.info)),
+          "---",
+          task.body,
+        ].join("\n");
+        return fs.writeFileString(file, content);
+      });
+    }
+
     return {
       formatTask,
       listFileInfo,
@@ -307,6 +309,7 @@ export class AppService extends Context.Service<AppService>()("@tatr/cli/AppServ
       readTask,
       saveTask,
       saveTaskIn,
+      updateTaskInfo,
     };
   }),
 }) {

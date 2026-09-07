@@ -1,4 +1,4 @@
-import { Array, Effect, FileSystem, Option, Schema, Stream } from "effect";
+import { Array, Effect, FileSystem, Option, Schema, Stream, Struct } from "effect";
 import type { NonEmptyReadonlyArray } from "effect/Array";
 import { Tool, Toolkit } from "effect/unstable/ai";
 import { runCollectSorted } from "../lib/functions.js";
@@ -17,6 +17,10 @@ const Cwd = Schema.String.annotate({
     "normally the repo you are working in. Defaults to where the server was started.",
 });
 
+const Id = Schema.String.annotate({
+  description: "The id of the task, which is the name of its file without the extension",
+});
+
 const Status = Schema.Literals(["open", "closed", "all"]).pipe(
   Schema.withDecodingDefault(Effect.succeed("open")),
   Schema.annotate({
@@ -26,7 +30,7 @@ const Status = Schema.Literals(["open", "closed", "all"]).pipe(
 
 class ListTasksParams extends Schema.Opaque<ListTasksParams>()(
   Schema.Struct({
-    cwd: Schema.OptionFromOptional(Cwd),
+    cwd: Schema.OptionFromOptionalKey(Cwd),
     tags: Schema.Array(Schema.String).pipe(
       Schema.optionalKey,
       Schema.annotate({
@@ -129,10 +133,8 @@ export const ListTasks = Tool.make("list_tasks", {
 export const ShowTask = Tool.make("show_task", {
   description: "Read one task of a tatr repo by its id, front matter and body.",
   parameters: Schema.Struct({
-    cwd: Schema.OptionFromOptional(Cwd),
-    id: Schema.String.annotate({
-      description: "The id of the task, which is the name of its file without the extension",
-    }),
+    cwd: Schema.OptionFromOptionalKey(Cwd),
+    id: Id,
   }),
   success: TaskWithBody,
   failure: TaskToolError,
@@ -146,7 +148,7 @@ export const CreateTask = Tool.make("create_task", {
     title: Schema.String.annotate({
       description: "The one line the task is known by",
     }),
-    cwd: Schema.OptionFromOptional(Cwd),
+    cwd: Schema.OptionFromOptionalKey(Cwd),
     tags: Schema.Array(Schema.String).pipe(
       Schema.optionalKey,
       Schema.annotate({
@@ -170,15 +172,28 @@ export const CreateTask = Tool.make("create_task", {
   failure: TaskToolError,
 });
 
-export const TaskToolkit = Toolkit.make(ListTasks, ShowTask, CreateTask);
+export const CloseTask = Tool.make("close_task", {
+  description:
+    "Close a task of a tatr repo by its id, which sets 'closed: true' in its front matter. " +
+    "A task that is already closed is left as it is, and answered for as it stands.",
+  parameters: Schema.Struct({
+    cwd: Schema.OptionFromOptionalKey(Cwd),
+    id: Id,
+  }),
+  success: TaskSummary,
+  failure: TaskToolError,
+});
 
-/** Every reason a tool has to give up, as the one sentence the agent is shown. */
+export const TaskToolkit = Toolkit.make(ListTasks, ShowTask, CreateTask, CloseTask);
+
 function toToolError(err: {
   readonly _tag: string;
   readonly message?: string;
   readonly id?: string;
 }) {
-  return new TaskToolError({ message: err.message ?? `${err._tag}` });
+  return new TaskToolError({
+    message: err.message ?? `${err._tag}`,
+  });
 }
 
 export const TaskHandlers = TaskToolkit.toLayer(
@@ -225,8 +240,6 @@ export const TaskHandlers = TaskToolkit.toLayer(
           const taskDir = yield* taskDirOf(params.cwd);
           const file = config.taskFilePathIn(taskDir, params.id);
 
-          // Said plainly, rather than as the failure to open a file the agent
-          // never asked for by name
           if (!(yield* fs.exists(file))) {
             return yield* new TaskToolError({
               message: `No task with id ${params.id} found`,
@@ -250,6 +263,33 @@ export const TaskHandlers = TaskToolkit.toLayer(
           });
 
           return TaskSummary.of(task);
+        },
+        Effect.catch((err) => Effect.fail(toToolError(err))),
+      ),
+
+      close_task: Effect.fnUntraced(
+        function* (params) {
+          const taskDir = yield* taskDirOf(params.cwd);
+          const file = config.taskFilePathIn(taskDir, params.id);
+
+          if (!(yield* fs.exists(file))) {
+            return yield* new TaskToolError({
+              message: `No task with id ${params.id} found`,
+            });
+          }
+
+          const task = yield* app.parseFullTask(file);
+
+          if (!task.info.closed) {
+            yield* app.updateTaskInfo(
+              file,
+              Struct.evolve({
+                closed: () => true,
+              }),
+            );
+          }
+
+          return TaskSummary.of(yield* app.readTask(file));
         },
         Effect.catch((err) => Effect.fail(toToolError(err))),
       ),

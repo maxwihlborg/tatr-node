@@ -21,6 +21,16 @@ export class TaskInfo extends Schema.Opaque<TaskInfo>()(
   }),
 ) {
   static decodeYaml = Schema.decodeEffect(fromYamlString(this));
+  static formatYaml({ tags, title, priority, closed }: TaskInfo) {
+    return [
+      `title: ${JSON.stringify(title)}`,
+      `priority: ${priority}`,
+      closed && `closed: true`,
+      tags.length > 0 && `tags: ${tags.join(", ")}`,
+    ]
+      .filter(Boolean)
+      .join("\n");
+  }
 }
 
 export class Task extends Schema.Opaque()(
