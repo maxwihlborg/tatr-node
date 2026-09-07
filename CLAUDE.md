@@ -4,17 +4,25 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Commands
 
-All work happens in `apps/cli` (the `apps/nvim` package is Lua, no build).
-Run these from the repo root — `--filter` targets the package, so there is no
-reason to `cd`:
+The `justfile` at the root is the front door, and every recipe fans out over the
+workspace through turbo, so these run from the repo root. In practice that means
+`apps/cli`, the only package with a build — `apps/nvim` is Lua.
 
 ```sh
-pnpm --filter @tatr/cli build              # tsc && rolldown -> apps/cli/dist/index.js
-pnpm --filter @tatr/cli lint               # oxlint, fails the build on unused imports
-pnpm --filter @tatr/cli format             # oxfmt
+just build         # tsc && rolldown -> apps/cli/dist/index.js
+just test          # vitest
+just format        # oxfmt
+just pull-request  # format, lint and build — the gate before handing work over
+just               # list the recipes, with their one letter aliases
+```
+
+Anything narrower goes through pnpm, still from the root — `--filter` targets
+the package, so there is no reason to `cd`:
+
+```sh
+pnpm exec vitest --run -t "mints ids"            # one test by name
+pnpm exec turbo run lint                         # oxlint, fails on unused imports
 pnpm --filter @tatr/cli exec tsc --noEmit -p .   # typecheck alone, faster than build
-pnpm --filter @tatr/cli exec vitest run    # tests (there is no `test` script)
-pnpm --filter @tatr/cli exec vitest run -t "mints ids"   # one test by name
 ```
 
 Stay in the working directory you were given. Paths in the conversation are

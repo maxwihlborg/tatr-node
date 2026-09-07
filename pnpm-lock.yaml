@@ -266,6 +266,9 @@ importers:
       turbo:
         specifier: ^2.10.12
         version: 2.10.12
+      vitest:
+        specifier: catalog:core
+        version: 4.1.11(@types/node@26.4.0)(vite@8.2.2(@types/node@26.4.0))
 
   apps/cli:
     devDependencies:
