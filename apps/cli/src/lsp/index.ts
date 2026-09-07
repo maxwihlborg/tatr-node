@@ -11,7 +11,7 @@ const LspLayer = RpcServer.layer(LanguageServerRpcGroup).pipe(
   Layer.provide(AppService.layer),
   Layer.provide(ConfigService.layer),
   Layer.provide(FileUtils.layer),
-  Layer.provideMerge(RpcServer.layerProtocolStdio),
+  Layer.provide(RpcServer.layerProtocolStdio),
   Layer.provide(layerLspRpcSerialization),
   Layer.provideMerge(Layer.succeed(Logger.LogToStderr, true)),
 );

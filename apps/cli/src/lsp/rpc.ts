@@ -269,7 +269,7 @@ export const LanguageServerRpcHandlers = LanguageServerRpcGroup.toLayer(
             textDocumentSync: { openClose: true, change: INCREMENTAL_SYNC },
             definitionProvider: true,
             hoverProvider: true,
-            referencesProvider: initializationOptions?.references ?? true,
+            referencesProvider: initializationOptions?.references ?? false,
             codeActionProvider: true,
             completionProvider: { triggerCharacters: ["[", "("] },
           },

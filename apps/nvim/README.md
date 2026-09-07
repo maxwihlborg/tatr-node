@@ -122,11 +122,20 @@ With that attached, on a line holding `[<id>]:` or `MARKER(<id>):`:
 | ------ | ------------------------------------------------------------------------------------------------ |
 | `grd`  | jumps to the task file, like `:TatrUpsert` without the creating                                  |
 | `K`    | shows the task, front matter and body                                                            |
-| `grr`  | lists every marker pointing at the task                                                          |
+| `grr`  | lists every marker pointing at the task, once turned on (see below)                              |
 | `gra`  | on a bare `TODO:`/`FIXME:`, creates the task and writes the id into the marker, like `:TatrTodo` |
 
+References are off unless asked for, since they are the one thing here that
+needs `ripgrep` on the machine:
+
+```lua
+vim.lsp.config("tatr", {
+  init_options = { references = true },
+})
+```
+
 `grr` also works anywhere inside a task file, where the task the file is stands
-in for an id under the cursor. It searches with `ripgrep`, so it sees what is on
+in for an id under the cursor. Searching with `ripgrep` means it sees what is on
 disk and skips whatever the repo ignores — a marker in an unsaved buffer is not
 in the list yet. The task file itself is included as the declaration, which
 clients ask for with `includeDeclaration`; `vim.lsp.buf.references()` does,
@@ -135,15 +144,6 @@ clients ask for with `includeDeclaration`; `vim.lsp.buf.references()` does,
 `root_markers` is only how neovim decides where to attach a client — the server
 resolves `tatr.config.yaml` per request, walking up from the file the request is
 about, so several projects in one session are fine.
-
-`init_options` turns a feature off, for when another plugin would rather tatr
-kept out of a request it also answers:
-
-```lua
-vim.lsp.config("tatr", {
-  init_options = { references = false },
-})
-```
 
 If `tatr` is not on `PATH`, point `cmd` at it:
 `cmd = { "node", "/path/to/apps/cli/bin/tatr.js", "lsp" }`.
