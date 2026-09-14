@@ -83,6 +83,35 @@ That is what the fzf picker, the neovim plugin, and the MCP `list_tasks` tool
 list by too, since none of them pass an order of their own. Absent the key the
 default is `-priority, title`.
 
+## Configuration
+
+`tatr init` writes a `tatr.config.yaml`, and every command walks up from the cwd
+to find it. Only `taskDir` is required:
+
+```yaml
+taskDir: ./tasks
+order: [-priority, title]
+formatter: oxfmt
+markers:
+  TODO:
+  FIXME: bug
+  FEAT: feature
+```
+
+`markers` is what a `TODO:`/`FIXME:` in a source comment becomes: the key is the
+word to look for, matched whatever its case, and the value is the tags the task
+made from it carries — as a bare tag, a comma separated string, a list, or
+nothing at all. Setting the key replaces the three above rather than adding to
+them. The LSP code action and the neovim plugin's `:TatrTodo` both go by this
+map, so a marker means the same thing wherever it is claimed from.
+
+`tatr config` prints the whole thing as json with the defaults filled in, which
+is how the neovim plugin reads it:
+
+```
+tatr config
+```
+
 ## Agents
 
 `tatr show <id> -f agent` prints a task as a tagged block with its path, and

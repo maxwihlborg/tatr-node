@@ -1,12 +1,38 @@
-import { Context, Data, Path, Effect, Layer, FileSystem, pipe, Schema, Option } from "effect";
+import {
+  Context,
+  Data,
+  Path,
+  Effect,
+  Layer,
+  FileSystem,
+  pipe,
+  Schema,
+  SchemaGetter,
+  Option,
+} from "effect";
 import { FileUtils } from "./file-utils.js";
-import { fromYamlString } from "../lib/schema.js";
+import { fromCommaSeparated, fromYamlString } from "../lib/schema.js";
+import { Markers } from "../lib/marker.js";
+import { TaskTagArray } from "../schema.js";
 
 export const CONFIG_NAME = "tatr.config.yaml";
 
 const TASK_EXT = ".md";
 
 export const DEFAULT_ORDER = ["-priority", "title"];
+
+export const DEFAULT_MARKERS: Record<string, ReadonlyArray<string>> = {
+  TODO: [],
+  FIXME: ["bug"],
+  FEAT: ["feature"],
+};
+
+const MarkersFromRecord = Schema.Record(Schema.String, TaskTagArray).pipe(
+  Schema.decodeTo(Schema.instanceOf(Markers), {
+    decode: SchemaGetter.transform((words) => new Markers(words)),
+    encode: SchemaGetter.transform((markers: Markers) => markers.words),
+  }),
+);
 
 export type ConfigErrorReason = Data.TaggedEnum<{
   AlreadyExist: { path: string };
@@ -38,12 +64,14 @@ export class TatrConfig extends Schema.Opaque<TatrConfig>()(
   Schema.Struct({
     taskDir: Schema.String,
     formatter: Schema.OptionFromOptionalKey(Schema.Literal("oxfmt")),
-    order: Schema.Union([Schema.String, Schema.Array(Schema.String)]).pipe(
+    order: fromCommaSeparated(Schema.Trim).pipe(
       Schema.withDecodingDefault(Effect.succeed(DEFAULT_ORDER)),
     ),
+    markers: MarkersFromRecord.pipe(Schema.withDecodingDefault(Effect.succeed(DEFAULT_MARKERS))),
   }),
 ) {
   static decodeYaml = Schema.decodeEffect(fromYamlString(this));
+  static encodeJson = Schema.encodeEffect(Schema.fromJsonString(this, { space: 2 }));
 }
 
 export class ConfigService extends Context.Service<ConfigService>()("@tatr/cli/ConfigService", {

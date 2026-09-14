@@ -1,14 +1,15 @@
 ---
-title: "Read tags and default tag from tatr config"
+title: "Read markers from tatr config"
 priority: 50
-tags: cli, config
+closed: true
+tags: cli, config, lsp
 ---
 
-Add a `tags` list and a `defaultTag` to `TatrConfig` in `services/config-service.ts`.
+The `TODO`/`FIXME`/`FEAT` to tags mapping is hard coded twice, in
+`lib/marker.ts` and again in the neovim plugin's `markers` option. Move it into
+`tatr.config.yaml` so a marker means the same thing wherever it is claimed from.
 
-- `tags` is the set of tags the repo knows about — feeds completion in the LSP and the `--tag` flag on `tatr new`, and gives `ls` something to validate a `tag:` query against.
-- `defaultTag` is applied by `tatr new` (and `create_task` over MCP) when no `--tag` is passed.
-
-Both optional, so a config with only `taskDir` keeps working.
-
-
+- `markers` on `TatrConfig`, decoding to a class that compiles the match pattern
+  once rather than per line.
+- `tatr config` prints the resolved config as json, which is how the plugin
+  reads it — its own `markers` option goes away.

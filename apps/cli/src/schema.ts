@@ -1,16 +1,11 @@
-import { Effect, Predicate, Schema, SchemaGetter, SchemaTransformation } from "effect";
-import { fromYamlString } from "./lib/schema";
+import { Effect, Schema, SchemaTransformation } from "effect";
+import { fromCommaSeparated, fromYamlString } from "./lib/schema";
 
 export const TaskTag = Schema.String.pipe(
   Schema.decodeTo(Schema.Trim, SchemaTransformation.toLowerCase()),
 );
 
-export const TaskTagArray = Schema.Union([Schema.String, Schema.Array(Schema.String)]).pipe(
-  Schema.decodeTo(Schema.Array(TaskTag), {
-    decode: SchemaGetter.transform((n) => (Predicate.isString(n) ? n.split(",") : n)),
-    encode: SchemaGetter.passthrough(),
-  }),
-);
+export const TaskTagArray = fromCommaSeparated(TaskTag);
 
 export class TaskInfo extends Schema.Opaque<TaskInfo>()(
   Schema.Struct({

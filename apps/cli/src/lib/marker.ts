@@ -7,17 +7,8 @@ const DELIMITERS = [
 
 const ID = /^[0-9A-Za-z]+$/;
 
-// comment marker -> the tags a task made from it carries
-const MARKERS: Record<string, ReadonlyArray<string>> = {
-  TODO: [],
-  FIXME: ["bug"],
-  FEAT: ["feature"],
-};
-
-// FIXME(DAF9GK681Q510): Should make colon optional
-const MARKER = new RegExp(`\\b(${Object.keys(MARKERS).join("|")}):`, "i");
-
-const TAGS = new Map(Object.entries(MARKERS).map(([word, tags]) => [word.toLowerCase(), tags]));
+// the words come out of the config, so they can hold anything a yaml key can
+const ESCAPE = /[.*+?^${}()|[\]\\]/g;
 
 export interface Marker {
   readonly word: string;
@@ -28,29 +19,50 @@ export interface Marker {
   readonly title: string;
 }
 
-/**
- * The first unclaimed marker on the line, matched whatever its case. A marker
- * that already carries an id reads as `WORD(<id>):`, so looking for a bare
- * `WORD:` skips it.
- */
-export function markerAt(line: string): Option.Option<Marker> {
-  const match = MARKER.exec(line);
+/** A marker word to the tags a task made from it carries, compiled once. */
+export class Markers {
+  readonly pattern: Option.Option<RegExp>;
+  private readonly tags: Map<string, ReadonlyArray<string>>;
 
-  if (!match) {
-    return Option.none();
+  constructor(readonly words: Record<string, ReadonlyArray<string>>) {
+    const escaped = Object.keys(words).map((word) => word.replace(ESCAPE, "\\$&"));
+
+    this.pattern = Option.map(
+      Option.liftPredicate(escaped, (n) => n.length > 0),
+      // FIXME(DAF9GK681Q510): Should make colon optional
+      (n) => new RegExp(`\\b(${n.join("|")}):`, "i"),
+    );
+    this.tags = new Map(Object.entries(words).map(([word, tags]) => [word.toLowerCase(), tags]));
   }
 
-  // the word as written, so rewriting it keeps the case the reader chose
-  const word = match[1]!;
-  const to = match.index + word.length + 1;
+  /**
+   * The first unclaimed marker on the line, matched whatever its case. A marker
+   * that already carries an id reads as `WORD(<id>):`, so looking for a bare
+   * `WORD:` skips it.
+   */
+  markerAt(line: string): Option.Option<Marker> {
+    if (Option.isNone(this.pattern)) {
+      return Option.none();
+    }
 
-  return Option.some({
-    word,
-    tags: TAGS.get(word.toLowerCase()) ?? [],
-    from: match.index,
-    to,
-    title: line.slice(to).trim(),
-  });
+    const match = this.pattern.value.exec(line);
+
+    if (!match) {
+      return Option.none();
+    }
+
+    // the word as written, so rewriting it keeps the case the reader chose
+    const word = match[1]!;
+    const to = match.index + word.length + 1;
+
+    return Option.some({
+      word,
+      tags: this.tags.get(word.toLowerCase()) ?? [],
+      from: match.index,
+      to,
+      title: line.slice(to).trim(),
+    });
+  }
 }
 
 /**

@@ -54,6 +54,24 @@ function M.root(opts, cb)
   end)
 end
 
+--- `tatr config`: the config of the enclosing repo, defaults filled in.
+---@param opts { cmd: string[] }
+---@param cb fun(config: { taskDir: string, order: string[], markers: table<string, string[]> }?, err: string?)
+function M.config(opts, cb)
+  run({ cmd = opts.cmd, args = { "config" } }, function(lines, err)
+    if not lines then
+      return cb(nil, err)
+    end
+
+    local ok, config = pcall(vim.json.decode, table.concat(lines, "\n"))
+    if not ok then
+      return cb(nil, "could not read tatr config: " .. config)
+    end
+
+    cb(config, nil)
+  end)
+end
+
 --- `tatr mint`: an id for a task that does not exist yet.
 ---@param opts { cmd: string[] }
 ---@param cb fun(id: string?, err: string?)

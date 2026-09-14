@@ -53,7 +53,18 @@ marker, opening nothing.
 // FIXME(DADDKSG5DX0WW): crashes on empty input
 ```
 
-`FIXME` tags the task `bug`, per the `markers` map below.
+`FIXME` tags the task `bug`, per the `markers` map in the repo's
+`tatr.config.yaml` — the same map the LSP code action goes by, so a marker means
+the same thing wherever it is claimed from:
+
+```yaml
+markers:
+  TODO:
+  FIXME: bug
+  FEAT: feature
+```
+
+Setting it replaces those three rather than adding to them.
 
 `:TatrUpsert` with the cursor on either kind of line, `[<id>]:` or
 `MARKER(<id>):`, opens the task that id names, creating it under that id first
@@ -161,10 +172,6 @@ Defaults, passed to `require("tatr").setup()`:
   open = "edit",      -- "edit" | "split" | "vsplit" | "tabedit"
   create = "tabe",    -- how :TatrNew opens the task it just created
   upsert = "tabe",    -- how :TatrUpsert opens the task under the cursor
-  markers = {         -- what :TatrTodo picks up, and the tags it gives the task
-    TODO = {},
-    FIXME = { "bug" },
-  },
   picker = "auto",    -- "auto" prefers fzf-lua when installed, "select" forces vim.ui.select
   prompt = "Tasks> ",
   fzf = {

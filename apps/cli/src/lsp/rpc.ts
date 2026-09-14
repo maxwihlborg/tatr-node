@@ -14,7 +14,7 @@ import type {
 import { TextDocumentIdentifier } from "vscode-languageserver-protocol";
 import { TextDocument, type DocumentUri } from "vscode-languageserver-textdocument";
 import { runCollectSorted } from "../lib/functions.js";
-import { idAt, idSpanAt, markerAt } from "../lib/marker.js";
+import { idAt, idSpanAt } from "../lib/marker.js";
 import { AppService, byLocation, ConfigService, Mint } from "../services/index.js";
 import { EMPTY_COMPLETION, INCREMENTAL_SYNC, REFERENCE_ITEM, TASK_START } from "./constants.js";
 import {
@@ -444,16 +444,16 @@ export const LanguageServerRpcHandlers = LanguageServerRpcGroup.toLayer(
             end: { line: range.start.line + 1, character: 0 },
           });
 
-          const marker = markerAt(line);
+          const file = yield* path.fromFileUrl(new URL(textDocument.uri));
+          const { markers } = yield* config.getConfigFromRootUri(path.dirname(file));
+
+          const marker = markers.markerAt(line);
           if (Option.isNone(marker)) {
             return [];
           }
 
           const id = yield* mint.nextId;
-          const taskFile = yield* Effect.flatMap(
-            path.fromFileUrl(new URL(textDocument.uri)),
-            (file) => config.getTaskFilePathFromRootUri(path.dirname(file), id),
-          );
+          const taskFile = yield* config.getTaskFilePathFromRootUri(path.dirname(file), id);
           const taskUri = yield* path.toFileUrl(taskFile);
 
           const text = app.formatTask({

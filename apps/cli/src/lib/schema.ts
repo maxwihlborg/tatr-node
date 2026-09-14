@@ -1,4 +1,11 @@
-import { Schema, SchemaGetter, Effect, SchemaIssue, SchemaTransformation } from "effect";
+import {
+  Schema,
+  SchemaGetter,
+  Effect,
+  Predicate,
+  SchemaIssue,
+  SchemaTransformation,
+} from "effect";
 import { Yaml } from "effect/unstable/encoding";
 
 const ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
@@ -68,6 +75,21 @@ export const fromCrock32Transform = SchemaTransformation.make<Uint8Array, string
     return out;
   }),
 });
+
+/**
+ * A list yaml can spell any of the three ways: `a, b`, `[a, b]`, and a key with
+ * nothing under it at all, which yaml reads as null and this reads as empty.
+ */
+export function fromCommaSeparated<S extends Schema.Codec<string, string>>(item: S) {
+  return Schema.Union([Schema.String, Schema.Array(Schema.String), Schema.Null]).pipe(
+    Schema.decodeTo(Schema.Array(item), {
+      decode: SchemaGetter.transform((n) =>
+        n === null ? [] : Predicate.isString(n) ? n.split(",") : n,
+      ),
+      encode: SchemaGetter.passthrough(),
+    }),
+  );
+}
 
 export function fromYamlString<S extends Schema.Top>(schema: S) {
   return Schema.String.pipe(Schema.decodeTo(schema, fromYamlStringTransform));
