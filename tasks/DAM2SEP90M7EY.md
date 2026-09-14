@@ -1,6 +1,7 @@
 ---
 title: "Task prune command"
 priority: 50
+closed: true
 tags: cli
 ---
 

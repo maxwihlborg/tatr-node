@@ -33,6 +33,7 @@ export const listTasks = pipe(
     ),
     sort: Flag.boolean("sort").pipe(Flag.withDefault(true)),
     order: Flag.atLeast(Flag.string("order"), 1).pipe(
+      Flag.withAlias("o"),
       Flag.withDescription("How to order the tasks, defaults to the config's 'order'"),
       Flag.optional,
     ),

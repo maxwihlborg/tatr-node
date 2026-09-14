@@ -6,6 +6,7 @@ import { initConfig } from "./commands/init-config.js";
 import { listTasks } from "./commands/list-tasks.js";
 import { mintId } from "./commands/mint-id.js";
 import { newTask } from "./commands/new-task.js";
+import { pruneTasks } from "./commands/prune-tasks.js";
 import { showConfig } from "./commands/show-config.js";
 import { showTask } from "./commands/show-task.js";
 import { tagTasks, untagTasks } from "./commands/tag-tasks.js";
@@ -22,6 +23,7 @@ const cli = pipe(
     mcpStart,
     mintId,
     newTask,
+    pruneTasks,
     showConfig,
     showTask,
     tagTasks,
