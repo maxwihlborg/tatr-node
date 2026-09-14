@@ -9,9 +9,9 @@ import { newTask } from "./commands/new-task.js";
 import { pruneTasks } from "./commands/prune-tasks.js";
 import { showConfig } from "./commands/show-config.js";
 import { showTask } from "./commands/show-task.js";
+import { lspStart } from "./commands/start-lsp.js";
+import { mcpStart } from "./commands/start-mcp.js";
 import { tagTasks, untagTasks } from "./commands/tag-tasks.js";
-import { lspStart } from "./lsp/index.js";
-import { mcpStart } from "./mcp/index.js";
 
 const cli = pipe(
   Command.make("tatr"), //

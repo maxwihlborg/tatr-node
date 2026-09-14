@@ -1,6 +1,5 @@
-import { Layer, Logger, pipe } from "effect";
+import { Layer, Logger } from "effect";
 import { McpProtocol, McpServer } from "effect/unstable/ai";
-import { Command } from "effect/unstable/cli";
 import { AppService, ConfigService, FileUtils, Formatter, Mint } from "../services/index.js";
 import { TaskHandlers, TaskToolkit } from "./tools.js";
 
@@ -24,8 +23,4 @@ const McpLayer = McpServer.toolkit(TaskToolkit).pipe(
   Layer.provideMerge(Layer.succeed(Logger.LogToStderr, true)),
 );
 
-export const mcpStart = pipe(
-  Command.make("mcp"),
-  Command.withDescription("Start the MCP server for agents"),
-  Command.withHandler(() => Layer.launch(McpLayer)),
-);
+export const run = Layer.launch(McpLayer);

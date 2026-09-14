@@ -1,5 +1,4 @@
-import { Layer, Logger, pipe } from "effect";
-import { Command } from "effect/unstable/cli";
+import { Layer, Logger } from "effect";
 import { RpcServer } from "effect/unstable/rpc";
 import { AppService, ConfigService, FileUtils, Formatter, Mint } from "../services/index.js";
 import { LanguageServerRpcGroup, LanguageServerRpcHandlers } from "./rpc.js";
@@ -17,8 +16,4 @@ const LspLayer = RpcServer.layer(LanguageServerRpcGroup).pipe(
   Layer.provideMerge(Layer.succeed(Logger.LogToStderr, true)),
 );
 
-export const lspStart = pipe(
-  Command.make("lsp"),
-  Command.withDescription("Start the simple LSP server"),
-  Command.withHandler(() => Layer.launch(LspLayer)),
-);
+export const run = Layer.launch(LspLayer);
