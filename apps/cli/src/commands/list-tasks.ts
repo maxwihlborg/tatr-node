@@ -2,6 +2,7 @@ import { Array, Console, Effect, Layer, Option, pipe, Schema, Stream, String } f
 import { Stdio } from "effect/Stdio";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import { AppService, FileUtils, Formatter, Fzf, Printer, Query, ConfigService } from "../services/index.js";
+import { shortestUniqueSuffixes } from "../lib/abbrev.js";
 import { unreachable } from "../lib/functions.js";
 import { Task } from "../schema.js";
 
@@ -112,9 +113,13 @@ export const listTasks = pipe(
         }
       }
 
+      // Over every id in the dir, not just the listed ones: an abbreviation the
+      // query happened to filter out of view still has to reach its own task.
+      const unique = shortestUniqueSuffixes(yield* app.listTaskIdsIn(taskDir));
+
       yield* pipe(
         program,
-        Stream.map((info) => `${printer.showTask(info)}\n`),
+        Stream.map((info) => `${printer.showTask(info, unique.get(info.id))}\n`),
         Stream.run(stdio.stdout({ endOnDone: true })),
       );
     }),

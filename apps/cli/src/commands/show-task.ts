@@ -1,4 +1,4 @@
-import { Console, Effect, FileSystem, Layer, pipe } from "effect";
+import { Console, Effect, Layer, pipe } from "effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import { unreachable } from "../lib/functions";
 import { AppService, ConfigService, FileUtils, Formatter, Printer } from "../services";
@@ -26,16 +26,11 @@ export const showTask = pipe(
   Command.withHandler(
     Effect.fnUntraced(function* ({ id, format }) {
       const config = yield* ConfigService;
-      const fs = yield* FileSystem.FileSystem;
       const app = yield* AppService;
       const printer = yield* Printer;
 
-      const filePath = yield* config.getTaskFilePath(id);
-
-      if (!(yield* fs.exists(filePath))) {
-        process.exitCode = 1;
-        return yield* Console.log(`No task with id ${id} found!`);
-      }
+      const context = yield* config.getContext;
+      const { file: filePath } = yield* app.resolveTaskIn(context.taskDir, id);
 
       // Before the parse: where a task lives is answerable even when what it
       // holds is not, and that is the answer an editor jumping to it wants.

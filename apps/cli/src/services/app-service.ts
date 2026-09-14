@@ -14,6 +14,8 @@ import {
 } from "effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
+import { matchingIds } from "../lib/abbrev.js";
+import { normalizeCrock32 } from "../lib/schema.js";
 import { idAt } from "../lib/marker.js";
 import { TaskInfo, type Task, TaskWithBody } from "../schema.js";
 import { ConfigService, type TatrContext } from "./config-service.js";
@@ -23,6 +25,21 @@ import { FileUtils } from "./file-utils.js";
 export class TaskAlreadyExistError extends Data.TaggedError("TaskAlreadyExistError")<{
   readonly id: string;
 }> {}
+
+export class TaskIdError extends Data.TaggedError("TaskIdError")<{
+  readonly id: string;
+  readonly candidates: ReadonlyArray<{ id: string; title: string }>;
+}> {
+  override get message() {
+    if (this.candidates.length === 0) {
+      return `No task with id ${this.id} found!`;
+    }
+    return [
+      `${this.id} is ambiguous, it could be any of:`,
+      ...this.candidates.map((n) => `  ${n.id}: ${n.title}`),
+    ].join("\n");
+  }
+}
 
 export type TaskParseErrorReason = Data.TaggedEnum<{
   YamlParseError: { cause: SchemaError.SchemaError };
@@ -74,6 +91,40 @@ export class AppService extends Context.Service<AppService>()("@tatr/cli/AppServ
         absolute: true,
       });
     }
+
+    function listTaskIdsIn(taskDir: string) {
+      return Stream.runCollect(Stream.map(listFilesIn(taskDir), config.taskIdOf));
+    }
+
+    /**
+     * An id as typed, which may be any suffix long enough to name one task.
+     * Closed tasks count, or closing one would quietly hand its abbreviation
+     * to something else.
+     */
+    const resolveTaskIn = Effect.fnUntraced(function* (taskDir: string, input: string) {
+      const exact = config.taskFilePathIn(taskDir, input);
+
+      if (normalizeCrock32(input) === input && (yield* fs.exists(exact))) {
+        return { id: input, file: exact };
+      }
+
+      const matches = matchingIds(yield* listTaskIdsIn(taskDir), input);
+
+      if (matches.length === 1) {
+        const id = matches[0]!;
+        return { id, file: config.taskFilePathIn(taskDir, id) };
+      }
+
+      return yield* new TaskIdError({
+        id: input,
+        candidates: yield* Effect.forEach(matches, (id) =>
+          Effect.map(readTask(taskDir, config.taskFilePathIn(taskDir, id)), (task) => ({
+            id,
+            title: task.info.title,
+          })),
+        ),
+      });
+    });
 
     type State = Data.TaggedEnum<{
       Opening: {};
@@ -257,9 +308,7 @@ export class AppService extends Context.Service<AppService>()("@tatr/cli/AppServ
       );
     }
 
-    function listFileInfoIn(
-      taskDir: string,
-    ): Stream.Stream<Task, TaskError | Cause.UnknownError> {
+    function listFileInfoIn(taskDir: string): Stream.Stream<Task, TaskError | Cause.UnknownError> {
       return pipe(
         listFilesIn(taskDir),
         Stream.filterMapEffect((file) => Effect.result(readTask(taskDir, file))),
@@ -330,10 +379,12 @@ export class AppService extends Context.Service<AppService>()("@tatr/cli/AppServ
       formatTask,
       listFileInfoIn,
       listFilesIn,
+      listTaskIdsIn,
       parseFullTask,
       parseTask,
       readTask,
       referencesOf,
+      resolveTaskIn,
       saveTaskIn,
       updateTaskInfo,
     };

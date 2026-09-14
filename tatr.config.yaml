@@ -1,2 +1,3 @@
 taskDir: ./tasks
-order: -id
+formatter: oxfmt
+order: [-priority, -id]

@@ -107,11 +107,29 @@ failure type needs a case there or it dies as a defect.
 epoch seconds plus 4 random bytes, so sorting ids lexicographically sorts by
 creation time. Decoding is lenient about case and the `O`/`I`/`L` aliases.
 
+Because the time comes first, tasks minted around each other share their leading
+characters, so `show` and `close` take any **suffix** long enough to name one
+task — `tatr show pg` — and `ls` greys the shared head of each id to show where
+that suffix starts (`lib/abbrev.ts`, resolved by `AppService.resolveTaskIn`).
+The uniqueness set is every file in the task dir, closed ones included, but it
+still shifts as tasks arrive: abbreviations are for typing, never for writing
+down. Commit subjects and the `[ID]` markers the LSP writes into source comments
+stay full ids, and so does every MCP tool, whose ids come from `list_tasks`.
+
 ## Conventions
 
 This repo tracks its own work with `tatr`: tasks live in `tasks/`, and commits
 name the task they came from — `feat(DAEYZH8SPNQ62): close cli and mcp
-commands`. Check `tatr ls` before starting, and `tatr close <id>` when done.
+commands`. Check the tasks before starting, and close the one you finished when
+done.
+
+**Reach for the `tatr` MCP tools, not the cli, when the work is a task itself** —
+`list_tasks`, `show_task`, `create_task`, `close_task`. They take structured
+parameters and a `cwd`, so there is no shell quoting to get wrong and no
+temporary file to pipe a body through. The `tatr` on `$PATH` runs the last
+build, which may predate the change you are working on; the MCP server is the
+same code and is the right front end for reading and writing tasks. Exercise the
+cli when the cli is what you are testing.
 
 Comments are sparse and explain why a choice was made, not what the line does —
 match that density rather than annotating new code heavily.

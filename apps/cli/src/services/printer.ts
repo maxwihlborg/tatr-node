@@ -56,8 +56,13 @@ export class Printer extends Context.Service<Printer>()("@tatr/cli/Printer", {
           "</task>",
         ].join("\n");
       },
-      showTask(task: Task) {
-        return `${clr.yellow(task.id)}: ${clr.gray("[priority:")} ${richPrio(task.info.priority)}${richTags(task.info.tags)}${clr.gray("]")} ${task.info.title}`;
+      /** The whole id, with the trailing `unique` characters that name it on
+       * their own picked out of the part it shares with its neighbours. */
+      showTask(task: Task, unique = task.id.length) {
+        const cut = Math.max(0, task.id.length - unique);
+        const id = `${clr.gray(task.id.slice(0, cut))}${clr.bold(clr.yellow(task.id.slice(cut)))}`;
+
+        return `${id}: ${clr.gray("[priority:")} ${richPrio(task.info.priority)}${richTags(task.info.tags)}${clr.gray("]")} ${task.info.title}`;
       },
     };
   }),

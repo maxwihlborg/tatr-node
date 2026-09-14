@@ -53,6 +53,9 @@ const main = pipe(
       case "TaskAlreadyExistError": {
         return abort(`A task with id ${err.id} already exists`);
       }
+      case "TaskIdError": {
+        return abort(err.message);
+      }
       case "TaskError": {
         return abort(`Could not read ${err.file}`);
       }

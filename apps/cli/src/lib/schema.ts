@@ -24,11 +24,17 @@ export const fromYamlStringTransform = SchemaTransformation.make<unknown, string
   encode: SchemaGetter.transform((value) => stringifyYaml(value)),
 });
 
+/** Lenient, per Crockford: case-insensitive, with `I`/`L` read as `1` and `O` as `0`.
+ * Anything comparing two ids has to fold them the same way the decoder does,
+ * or the short form and the long form disagree about `0`. */
+export function normalizeCrock32(text: string) {
+  return text.toUpperCase().replaceAll(/[IL]/g, "1").replaceAll("O", "0");
+}
+
 export const fromCrock32Transform = SchemaTransformation.make<Uint8Array, string>({
   decode: SchemaGetter.transformOrFail((text, options) => {
     const out = new Uint8Array(Math.floor((text.length * BITS_PER_CHAR) / 8));
-    // Lenient, per Crockford: case-insensitive, with `I`/`L` read as `1` and `O` as `0`.
-    const normalized = text.toUpperCase().replaceAll(/[IL]/g, "1").replaceAll("O", "0");
+    const normalized = normalizeCrock32(text);
     let buffer = 0;
     let bits = 0;
     let index = 0;
