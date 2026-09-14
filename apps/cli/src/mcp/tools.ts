@@ -271,9 +271,9 @@ export const TaskHandlers = TaskToolkit.toLayer(
 
       create_task: Effect.fnUntraced(
         function* (params) {
-          const taskDir = yield* taskDirOf(params.cwd);
+          const context = yield* contextOf(params.cwd);
 
-          const task = yield* app.saveTaskIn(taskDir, yield* mint.nextId, {
+          const task = yield* app.saveTaskIn(context, yield* mint.nextId, {
             title: params.title,
             tags: Option.fromUndefinedOr(params.tags),
             priority: Option.fromUndefinedOr(params.priority),
@@ -287,8 +287,8 @@ export const TaskHandlers = TaskToolkit.toLayer(
 
       close_task: Effect.fnUntraced(
         function* (params) {
-          const taskDir = yield* taskDirOf(params.cwd);
-          const file = config.taskFilePathIn(taskDir, params.id);
+          const context = yield* contextOf(params.cwd);
+          const file = config.taskFilePathIn(context.taskDir, params.id);
 
           if (!(yield* fs.exists(file))) {
             return yield* new TaskToolError({
@@ -300,6 +300,7 @@ export const TaskHandlers = TaskToolkit.toLayer(
 
           if (!task.info.closed) {
             yield* app.updateTaskInfo(
+              context,
               file,
               Struct.evolve({
                 closed: () => true,
@@ -307,7 +308,7 @@ export const TaskHandlers = TaskToolkit.toLayer(
             );
           }
 
-          return TaskSummary.of(yield* app.readTask(taskDir, file));
+          return TaskSummary.of(yield* app.readTask(context.taskDir, file));
         },
         Effect.catch((err) => Effect.fail(toToolError(err))),
       ),

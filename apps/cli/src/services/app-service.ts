@@ -16,7 +16,8 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import { idAt } from "../lib/marker.js";
 import { TaskInfo, type Task, TaskWithBody } from "../schema.js";
-import { ConfigService } from "./config-service.js";
+import { ConfigService, type TatrContext } from "./config-service.js";
+import { Formatter } from "./formatter.js";
 import { FileUtils } from "./file-utils.js";
 
 export class TaskAlreadyExistError extends Data.TaggedError("TaskAlreadyExistError")<{
@@ -65,6 +66,7 @@ export class AppService extends Context.Service<AppService>()("@tatr/cli/AppServ
     const fu = yield* FileUtils;
     const path = yield* Path.Path;
     const config = yield* ConfigService;
+    const formatter = yield* Formatter;
 
     function listFilesIn(root: string) {
       return fu.glob(config.globPattern, {
@@ -289,27 +291,39 @@ export class AppService extends Context.Service<AppService>()("@tatr/cli/AppServ
       ].join("\n");
     }
 
-    const saveTaskIn = Effect.fnUntraced(function* (taskDir: string, id: string, task: TaskFields) {
-      const filePath = config.taskFilePathIn(taskDir, id);
+    const saveTaskIn = Effect.fnUntraced(function* (
+      context: TatrContext,
+      id: string,
+      task: TaskFields,
+    ) {
+      const filePath = config.taskFilePathIn(context.taskDir, id);
 
       yield* Effect.when(Effect.fail(new TaskAlreadyExistError({ id })), fs.exists(filePath));
 
-      yield* fs.writeFileString(filePath, formatTask(task));
+      yield* fs.writeFileString(
+        filePath,
+        yield* formatter.format(context, filePath, formatTask(task)),
+      );
 
-      return yield* readTask(taskDir, filePath);
+      return yield* readTask(context.taskDir, filePath);
     });
 
-    function updateTaskInfo(file: string, update: (info: TaskInfo) => TaskInfo) {
-      return Effect.flatMap(parseFullTask(file), (task) => {
-        const content = [
-          "---", //
-          TaskInfo.formatYaml(update(task.info)),
-          "---",
-          task.body,
-        ].join("\n");
-        return fs.writeFileString(file, content);
-      });
-    }
+    const updateTaskInfo = Effect.fnUntraced(function* (
+      context: TatrContext,
+      file: string,
+      update: (info: TaskInfo) => TaskInfo,
+    ) {
+      const task = yield* parseFullTask(file);
+
+      const content = [
+        "---", //
+        TaskInfo.formatYaml(update(task.info)),
+        "---",
+        task.body,
+      ].join("\n");
+
+      yield* fs.writeFileString(file, yield* formatter.format(context, file, content));
+    });
 
     return {
       formatTask,

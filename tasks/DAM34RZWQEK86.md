@@ -1,6 +1,7 @@
 ---
 title: "Make config.formatter actually be used"
 priority: 50
+closed: true
 tags: core
 ---
 

@@ -73,6 +73,12 @@ export class TatrConfig extends Schema.Opaque<TatrConfig>()(
   static decodeYaml = Schema.decodeEffect(fromYamlString(this));
 }
 
+export interface TatrContext {
+  readonly configPath: string;
+  readonly config: TatrConfig;
+  readonly taskDir: string;
+}
+
 export class ConfigService extends Context.Service<ConfigService>()("@tatr/cli/ConfigService", {
   make: Effect.gen(function* () {
     const path = yield* Path.Path;
@@ -112,7 +118,10 @@ export class ConfigService extends Context.Service<ConfigService>()("@tatr/cli/C
       );
     }
 
-    function getContextFrom(configPath: string, config: TatrConfig) {
+    function getContextFrom(
+      configPath: string,
+      config: TatrConfig,
+    ): Effect.Effect<TatrContext, ConfigError> {
       return Effect.map(getTaskDirFrom(configPath, config), (taskDir) => ({
         configPath,
         config,

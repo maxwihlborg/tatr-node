@@ -15,7 +15,7 @@ import { TextDocumentIdentifier } from "vscode-languageserver-protocol";
 import { TextDocument, type DocumentUri } from "vscode-languageserver-textdocument";
 import { runCollectSorted } from "../lib/functions.js";
 import { idAt, idSpanAt } from "../lib/marker.js";
-import { AppService, byLocation, ConfigService, Mint } from "../services/index.js";
+import { AppService, byLocation, ConfigService, Formatter, Mint } from "../services/index.js";
 import { EMPTY_COMPLETION, INCREMENTAL_SYNC, REFERENCE_ITEM, TASK_START } from "./constants.js";
 import {
   CodeAction,
@@ -103,6 +103,7 @@ export const LanguageServerRpcHandlers = LanguageServerRpcGroup.toLayer(
     const path = yield* Path.Path;
     const mint = yield* Mint;
     const app = yield* AppService;
+    const formatter = yield* Formatter;
     const fs = yield* FileSystem.FileSystem;
 
     const createdRef = yield* Ref.make<Record<string, CreatedTask>>({});
@@ -445,23 +446,28 @@ export const LanguageServerRpcHandlers = LanguageServerRpcGroup.toLayer(
           });
 
           const file = yield* path.fromFileUrl(new URL(textDocument.uri));
-          const { markers } = yield* config.getConfigFromRootUri(path.dirname(file));
+          const context = yield* config.getContextFromRootUri(path.dirname(file));
 
-          const marker = markers.markerAt(line);
+          const marker = context.config.markers.markerAt(line);
           if (Option.isNone(marker)) {
             return [];
           }
 
           const id = yield* mint.nextId;
-          const taskFile = yield* config.getTaskFilePathFromRootUri(path.dirname(file), id);
+          const taskFile = config.taskFilePathIn(context.taskDir, id);
           const taskUri = yield* path.toFileUrl(taskFile);
 
-          const text = app.formatTask({
-            title: marker.value.title.length > 0 ? marker.value.title : id,
-            tags: Option.liftPredicate(marker.value.tags, Array.isReadonlyArrayNonEmpty),
-            priority: Option.none(),
-            body: Option.none(),
-          });
+          // the client writes this one, so it is formatted here or not at all
+          const text = yield* formatter.format(
+            context,
+            taskFile,
+            app.formatTask({
+              title: marker.value.title.length > 0 ? marker.value.title : id,
+              tags: Option.liftPredicate(marker.value.tags, Array.isReadonlyArrayNonEmpty),
+              priority: Option.none(),
+              body: Option.none(),
+            }),
+          );
 
           yield* rememberTask(id, { uri: taskUri, text });
 

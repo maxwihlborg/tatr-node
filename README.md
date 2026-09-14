@@ -136,6 +136,16 @@ nothing at all. Setting the key replaces the three above rather than adding to
 them. The LSP code action and the neovim plugin's `:TatrTodo` both go by this
 map, so a marker means the same thing wherever it is claimed from.
 
+`formatter` runs over a task on its way to disk, on every write — `new`, `tag`,
+`untag`, `close`, the MCP `create_task`, and the LSP code action alike. Only
+`oxfmt` is implemented, and it goes through oxfmt's cli rather than its js api,
+which has no config resolution: the cli walks up from the task file for
+`.oxfmtrc.json`, so a task comes out formatted the way its own repo formats
+markdown. The oxfmt package is resolved from the repo the config belongs to, so
+the version that formats a task is the one that repo installed. Setting the key
+in a repo that has no oxfmt is a config error, and the write is refused rather
+than landing unformatted.
+
 `tatr config` prints the whole thing as json with the defaults filled in, which
 is how the neovim plugin reads it. `root` is the task dir resolved against the
 config's own location, so a caller can open a task without resolving anything:

@@ -1,9 +1,10 @@
 import { Array, Console, Effect, Layer, Stream, Struct, pipe } from "effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import type { Task } from "../schema.js";
-import { AppService, ConfigService, FileUtils, Query } from "../services/index.js";
+import { AppService, ConfigService, FileUtils, Formatter, Query } from "../services/index.js";
 
 const TagLayer = AppService.layer.pipe(
+  Layer.provide(Formatter.layer),
   Layer.provideMerge(ConfigService.layer),
   Layer.provide(FileUtils.layer),
 );
@@ -43,10 +44,10 @@ const rewriteTags = Effect.fnUntraced(function* (params: TagMoveCommandParams, r
   const config = yield* ConfigService;
   const app = yield* AppService;
 
-  const { taskDir } = yield* config.getContext;
+  const context = yield* config.getContext;
   const ops = yield* Query.compileQuery(params.query);
 
-  let program = Stream.filter(app.listFileInfoIn(taskDir), Query.filter(ops));
+  let program = Stream.filter(app.listFileInfoIn(context.taskDir), Query.filter(ops));
 
   if (params.status !== "all") {
     const closed = params.status === "closed";
@@ -58,7 +59,7 @@ const rewriteTags = Effect.fnUntraced(function* (params: TagMoveCommandParams, r
     Stream.filter((task) => rewrite.moved(task).length > 0),
     Stream.mapEffect((task) =>
       app
-        .updateTaskInfo(task.file, Struct.evolve({ tags: rewrite.next }))
+        .updateTaskInfo(context, task.file, Struct.evolve({ tags: rewrite.next }))
         .pipe(Effect.andThen(Console.log(rewrite.report(task.id, rewrite.moved(task))))),
     ),
     Stream.runCount,

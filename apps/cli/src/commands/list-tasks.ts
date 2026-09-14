@@ -1,11 +1,12 @@
 import { Array, Console, Effect, Layer, Option, pipe, Schema, Stream, String } from "effect";
 import { Stdio } from "effect/Stdio";
 import { Argument, Command, Flag } from "effect/unstable/cli";
-import { AppService, FileUtils, Fzf, Printer, Query, ConfigService } from "../services/index.js";
+import { AppService, FileUtils, Formatter, Fzf, Printer, Query, ConfigService } from "../services/index.js";
 import { unreachable } from "../lib/functions.js";
 import { Task } from "../schema.js";
 
 const ListLayer = Layer.mergeAll(AppService.layer, Printer.layer, Fzf.layer).pipe(
+  Layer.provide(Formatter.layer),
   Layer.provideMerge(ConfigService.layer),
   Layer.provide(FileUtils.layer),
 );

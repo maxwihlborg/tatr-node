@@ -1,8 +1,9 @@
 import { Console, Effect, FileSystem, Layer, Struct, pipe } from "effect";
 import { Argument, Command } from "effect/unstable/cli";
-import { AppService, ConfigService, FileUtils } from "../services";
+import { AppService, ConfigService, FileUtils, Formatter } from "../services";
 
 const CloseLayer = AppService.layer.pipe(
+  Layer.provide(Formatter.layer),
   Layer.provideMerge(ConfigService.layer),
   Layer.provide(FileUtils.layer),
 );
@@ -21,7 +22,8 @@ export const closeTask = pipe(
       const fs = yield* FileSystem.FileSystem;
       const app = yield* AppService;
 
-      const filePath = yield* config.getTaskFilePath(id);
+      const context = yield* config.getContext;
+      const filePath = config.taskFilePathIn(context.taskDir, id);
 
       if (!(yield* fs.exists(filePath))) {
         process.exitCode = 1;
@@ -35,6 +37,7 @@ export const closeTask = pipe(
       }
 
       yield* app.updateTaskInfo(
+        context,
         filePath,
         Struct.evolve({
           closed: () => true,

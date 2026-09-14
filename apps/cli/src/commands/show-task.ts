@@ -1,9 +1,10 @@
 import { Console, Effect, FileSystem, Layer, pipe } from "effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import { unreachable } from "../lib/functions";
-import { AppService, ConfigService, FileUtils, Printer } from "../services";
+import { AppService, ConfigService, FileUtils, Formatter, Printer } from "../services";
 
 const ShowLayer = Layer.mergeAll(AppService.layer, Printer.layer).pipe(
+  Layer.provide(Formatter.layer),
   Layer.provideMerge(ConfigService.layer),
   Layer.provide(FileUtils.layer),
 );

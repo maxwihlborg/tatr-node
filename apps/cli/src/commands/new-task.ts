@@ -1,9 +1,10 @@
 import { Console, Effect, Layer, Option, pipe, Stdio, Stream, String } from "effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
-import { AppService, ConfigService, FileUtils, Mint } from "../services/index.js";
+import { AppService, ConfigService, FileUtils, Formatter, Mint } from "../services/index.js";
 import { unreachable } from "../lib/functions.js";
 
 const NewLayer = Layer.mergeAll(AppService.layer, Mint.layer).pipe(
+  Layer.provide(Formatter.layer),
   Layer.provideMerge(ConfigService.layer),
   Layer.provide(FileUtils.layer),
 );
@@ -50,7 +51,7 @@ export const newTask = pipe(
       const mint = yield* Mint;
       const stdio = yield* Stdio.Stdio;
 
-      const { taskDir } = yield* config.getContext;
+      const context = yield* config.getContext;
 
       const readStdin = pipe(
         stdio.stdin,
@@ -60,7 +61,7 @@ export const newTask = pipe(
       );
 
       const task = yield* app.saveTaskIn(
-        taskDir,
+        context,
         yield* Effect.catch(Effect.fromOption(id), () => mint.nextId),
         {
           title,

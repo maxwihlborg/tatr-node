@@ -1,7 +1,7 @@
 import { Layer, Logger, pipe } from "effect";
 import { McpProtocol, McpServer } from "effect/unstable/ai";
 import { Command } from "effect/unstable/cli";
-import { AppService, ConfigService, FileUtils, Mint } from "../services/index.js";
+import { AppService, ConfigService, FileUtils, Formatter, Mint } from "../services/index.js";
 import { TaskHandlers, TaskToolkit } from "./tools.js";
 
 /**
@@ -11,6 +11,7 @@ import { TaskHandlers, TaskToolkit } from "./tools.js";
 const McpLayer = McpServer.toolkit(TaskToolkit).pipe(
   Layer.provide(TaskHandlers),
   Layer.provide(Layer.mergeAll(AppService.layer, Mint.layer)),
+  Layer.provide(Formatter.layer),
   Layer.provide(ConfigService.layer),
   Layer.provide(FileUtils.layer),
   Layer.provide(

@@ -1,8 +1,9 @@
 import { Console, Effect, FileSystem, Layer, Option, Stream, String, pipe } from "effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
-import { AppService, ConfigService, FileUtils, Query } from "../services/index.js";
+import { AppService, ConfigService, FileUtils, Formatter, Query } from "../services/index.js";
 
 const PruneLayer = AppService.layer.pipe(
+  Layer.provide(Formatter.layer),
   Layer.provideMerge(ConfigService.layer),
   Layer.provide(FileUtils.layer),
 );
