@@ -38,8 +38,8 @@ export class Printer extends Context.Service<Printer>()("@tatr/cli/Printer", {
     };
 
     return {
-      vimgrep(task: Task) {
-        return `${path.relative(process.cwd(), task.file)}:1:1 [priority: ${task.info.priority}${plainTags(task.info.tags)}] ${task.info.title}`;
+      vimgrep(base: string, task: Task) {
+        return `${path.relative(base, task.file)}:1:1 [priority: ${task.info.priority}${plainTags(task.info.tags)}] ${task.info.title}`;
       },
       /** The body is written verbatim: it is markdown meant to be read, and
        * escaping it would only make it harder to. */

@@ -27,6 +27,7 @@ export const listTasks = pipe(
       Flag.optional,
     ),
     status: Flag.choice("status", ["open", "closed", "all"]).pipe(
+      Flag.withAlias("s"),
       Flag.withDescription("Which tasks to list, by their 'closed' front matter"),
       Flag.withDefault("open"),
     ),
@@ -45,21 +46,19 @@ export const listTasks = pipe(
       const app = yield* AppService;
       const fzf = yield* Fzf;
 
-      const order = yield* pipe(
-        Effect.fromOption(orderFlag),
-        Effect.catch(() => config.getOrder),
-        Effect.map((n) => Option.liftPredicate(Query.normalize(n, ", "), String.isNonEmpty)),
+      const { config: cfg, taskDir } = yield* config.getContext;
+
+      const order = pipe(
+        Option.orElse(orderFlag, () => Option.some(cfg.order)),
+        Option.map((n) => Query.normalize(n, ", ")),
+        Option.flatMap(Option.liftPredicate(String.isNonEmpty)),
       );
 
       if (interactive) {
-        return yield* Effect.scoped(
-          Effect.flatMap(config.getTaskDir, (dir) =>
-            fzf.runInteractive(dir, { query, order, status }),
-          ),
-        );
+        return yield* Effect.scoped(fzf.runInteractive(taskDir, { query, order, status }));
       }
 
-      let program = app.listFileInfo;
+      let program = app.listFileInfoIn(taskDir);
 
       if (status !== "all") {
         const closed = status === "closed";
@@ -92,7 +91,9 @@ export const listTasks = pipe(
           case "vimgrep": {
             return yield* pipe(
               program,
-              Stream.map((info) => `${printer.vimgrep(info)}\n`),
+              // relative to where the command ran, which is what an editor's
+              // :grep expects to be able to jump from
+              Stream.map((info) => `${printer.vimgrep(process.cwd(), info)}\n`),
               Stream.run(stdio.stdout({ endOnDone: true })),
             );
           }

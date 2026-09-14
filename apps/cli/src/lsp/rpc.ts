@@ -167,8 +167,8 @@ export const LanguageServerRpcHandlers = LanguageServerRpcGroup.toLayer(
 
     function getTaskInDocument(textDocument: TextDocumentIdentifier, id: string) {
       return path.fromFileUrl(new URL(textDocument.uri)).pipe(
-        Effect.flatMap((fileUrl) => config.getTaskFilePathFromRootUri(path.dirname(fileUrl), id)),
-        Effect.flatMap(app.readTask),
+        Effect.flatMap((fileUrl) => config.getTaskDirFromRootUri(path.dirname(fileUrl))),
+        Effect.flatMap((taskDir) => app.readTask(taskDir, config.taskFilePathIn(taskDir, id))),
       );
     }
 
@@ -223,7 +223,7 @@ export const LanguageServerRpcHandlers = LanguageServerRpcGroup.toLayer(
                   Effect.flatMap(
                     Option.match({
                       onSome: (doc) => app.parseTask(file, doc.getText()),
-                      onNone: () => app.readTask(file),
+                      onNone: () => app.readTask(taskDir, file),
                     }),
                   ),
                   Effect.result,

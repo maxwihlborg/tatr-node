@@ -11,7 +11,7 @@ export const showRoot = pipe(
     Effect.fnUntraced(function* () {
       const config = yield* ConfigService;
 
-      yield* Console.log(yield* config.getTaskDir);
+      yield* Console.log((yield* config.getContext).taskDir);
     }),
   ),
   Command.provide(RootLayer),

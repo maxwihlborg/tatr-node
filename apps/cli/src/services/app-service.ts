@@ -16,7 +16,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import { idAt } from "../lib/marker.js";
 import { TaskInfo, type Task, TaskWithBody } from "../schema.js";
-import { ConfigError, ConfigService } from "./config-service.js";
+import { ConfigService } from "./config-service.js";
 import { FileUtils } from "./file-utils.js";
 
 export class TaskAlreadyExistError extends Data.TaggedError("TaskAlreadyExistError")<{
@@ -62,8 +62,6 @@ export class AppService extends Context.Service<AppService>()("@tatr/cli/AppServ
       });
     }
 
-    const listFiles = Stream.unwrap(Effect.map(config.getTaskDir, listFilesIn));
-
     type State = Data.TaggedEnum<{
       Opening: {};
       Inside: { lines: string[] };
@@ -105,7 +103,7 @@ export class AppService extends Context.Service<AppService>()("@tatr/cli/AppServ
       );
     }
 
-    function readTask(file: string): Effect.Effect<Task, TaskError> {
+    function readTask(taskDir: string, file: string): Effect.Effect<Task, TaskError> {
       return Effect.succeed({ file, id: config.taskIdOf(file) }).pipe(
         Effect.bind("stat", () => fs.stat(file)),
         Effect.bind("info", () => {
@@ -115,11 +113,11 @@ export class AppService extends Context.Service<AppService>()("@tatr/cli/AppServ
               return Effect.logError(err);
             }),
             Effect.tapErrorTag("NoSuchElementError", () => {
-              return Effect.logError(`${path.relative(process.cwd(), file)}: No frontmatter`);
+              return Effect.logError(`${path.relative(taskDir, file)}: No frontmatter`);
             }),
             Effect.tapErrorTag("SchemaError", (err) => {
               return Effect.logError(
-                `${path.relative(process.cwd(), file)}: Invalid frontmatter\n\n${err.message}\n`,
+                `${path.relative(taskDir, file)}: Invalid frontmatter\n\n${err.message}\n`,
               );
             }),
           );
@@ -128,7 +126,6 @@ export class AppService extends Context.Service<AppService>()("@tatr/cli/AppServ
       );
     }
 
-    /** `listFileInfo` for a task dir the caller already knows. */
     /**
      * The front matter of a task the caller already holds the text of, for
      * readers with a copy fresher than the file, such as an editor buffer.
@@ -251,10 +248,14 @@ export class AppService extends Context.Service<AppService>()("@tatr/cli/AppServ
       );
     }
 
-    const listFileInfo: Stream.Stream<Task, TaskError | ConfigError | Cause.UnknownError> = pipe(
-      listFiles,
-      Stream.filterMapEffect((file) => Effect.result(readTask(file))),
-    );
+    function listFileInfoIn(
+      taskDir: string,
+    ): Stream.Stream<Task, TaskError | Cause.UnknownError> {
+      return pipe(
+        listFilesIn(taskDir),
+        Stream.filterMapEffect((file) => Effect.result(readTask(taskDir, file))),
+      );
+    }
 
     interface TaskFields {
       title: string;
@@ -288,11 +289,7 @@ export class AppService extends Context.Service<AppService>()("@tatr/cli/AppServ
 
       yield* fs.writeFileString(filePath, formatTask(task));
 
-      return yield* readTask(filePath);
-    });
-
-    const saveTask = Effect.fnUntraced(function* (id: string, task: TaskFields) {
-      return yield* saveTaskIn(yield* config.getTaskDir, id, task);
+      return yield* readTask(taskDir, filePath);
     });
 
     function updateTaskInfo(file: string, update: (info: TaskInfo) => TaskInfo) {
@@ -309,13 +306,12 @@ export class AppService extends Context.Service<AppService>()("@tatr/cli/AppServ
 
     return {
       formatTask,
-      listFileInfo,
+      listFileInfoIn,
       listFilesIn,
       parseFullTask,
       parseTask,
       readTask,
       referencesOf,
-      saveTask,
       saveTaskIn,
       updateTaskInfo,
     };

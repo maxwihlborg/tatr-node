@@ -4,7 +4,7 @@ import { AppService, ConfigService, FileUtils, Mint } from "../services/index.js
 import { unreachable } from "../lib/functions.js";
 
 const NewLayer = Layer.mergeAll(AppService.layer, Mint.layer).pipe(
-  Layer.provide(ConfigService.layer),
+  Layer.provideMerge(ConfigService.layer),
   Layer.provide(FileUtils.layer),
 );
 
@@ -46,8 +46,11 @@ export const newTask = pipe(
   Command.withHandler(
     Effect.fnUntraced(function* ({ id, title, tags, priority, body, fromStdin, format }) {
       const app = yield* AppService;
+      const config = yield* ConfigService;
       const mint = yield* Mint;
       const stdio = yield* Stdio.Stdio;
+
+      const { taskDir } = yield* config.getContext;
 
       const readStdin = pipe(
         stdio.stdin,
@@ -56,7 +59,8 @@ export const newTask = pipe(
         Effect.map((text) => Option.liftPredicate(text.trim(), String.isNonEmpty)),
       );
 
-      const task = yield* app.saveTask(
+      const task = yield* app.saveTaskIn(
+        taskDir,
         yield* Effect.catch(Effect.fromOption(id), () => mint.nextId),
         {
           title,

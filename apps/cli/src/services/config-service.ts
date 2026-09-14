@@ -113,15 +113,21 @@ export class ConfigService extends Context.Service<ConfigService>()("@tatr/cli/C
       );
     }
 
+    function getContextFrom(configPath: string, config: TatrConfig) {
+      return Effect.map(getTaskDirFrom(configPath, config), (taskDir) => ({
+        configPath,
+        config,
+        taskDir,
+      }));
+    }
+
     const findConfigPath = yield* Effect.cached(findConfigPathFrom());
     const getConfig = yield* Effect.cached(Effect.flatMap(findConfigPath, readConfigFrom));
-    const getTaskDir = yield* pipe(
+    const getContext = yield* pipe(
       Effect.all([findConfigPath, getConfig]),
-      Effect.flatMap(([configPath, config]) => getTaskDirFrom(configPath, config)),
+      Effect.flatMap(([configPath, config]) => getContextFrom(configPath, config)),
       Effect.cached,
     );
-
-    const getOrder = Effect.map(getConfig, (config) => config.order);
 
     const initConfig = Effect.fnUntraced(function* (options: { taskDir: string; force: boolean }) {
       const root = yield* Effect.orElseSucceed(
@@ -148,16 +154,16 @@ export class ConfigService extends Context.Service<ConfigService>()("@tatr/cli/C
       return Effect.flatMap(findConfigPathFrom(rootUri), readConfigFrom);
     }
 
-    function getOrderFromRootUri(rootUri: string) {
-      return Effect.map(getConfigFromRootUri(rootUri), (config) => config.order);
-    }
-
-    function getTaskDirFromRootUri(rootUri: string) {
+    function getContextFromRootUri(rootUri: string) {
       return Effect.Do.pipe(
         Effect.bind("configPath", () => findConfigPathFrom(rootUri)),
         Effect.bind("config", ({ configPath }) => readConfigFrom(configPath)),
-        Effect.flatMap(({ configPath, config }) => getTaskDirFrom(configPath, config)),
+        Effect.flatMap(({ configPath, config }) => getContextFrom(configPath, config)),
       );
+    }
+
+    function getTaskDirFromRootUri(rootUri: string) {
+      return Effect.map(getContextFromRootUri(rootUri), (context) => context.taskDir);
     }
 
     function taskFilePathIn(dir: string, id: string) {
@@ -165,7 +171,7 @@ export class ConfigService extends Context.Service<ConfigService>()("@tatr/cli/C
     }
 
     function getTaskFilePath(id: string) {
-      return Effect.map(getTaskDir, (dir) => taskFilePathIn(dir, id));
+      return Effect.map(getContext, (context) => taskFilePathIn(context.taskDir, id));
     }
 
     function getTaskFilePathFromRootUri(rootUri: string, id: string) {
@@ -192,7 +198,7 @@ export class ConfigService extends Context.Service<ConfigService>()("@tatr/cli/C
     return {
       getRootDirFromRootUri,
       getConfigFromRootUri,
-      getOrderFromRootUri,
+      getContextFromRootUri,
       getTaskDirFromRootUri,
       taskFilePathIn,
       getTaskFilePath,
@@ -201,9 +207,8 @@ export class ConfigService extends Context.Service<ConfigService>()("@tatr/cli/C
       taskIdOf,
       taskIdOfFileIn,
       findConfigPath,
-      getTaskDir,
+      getContext,
       getConfig,
-      getOrder,
       initConfig,
     };
   }),

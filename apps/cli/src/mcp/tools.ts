@@ -206,15 +206,12 @@ export const TaskHandlers = TaskToolkit.toLayer(
     const app = yield* AppService;
     const fs = yield* FileSystem.FileSystem;
 
-    function taskDirOf(root: Option.Option<string>) {
-      return config.getTaskDirFromRootUri(Option.getOrElse(root, () => process.cwd()));
+    function contextOf(root: Option.Option<string>) {
+      return config.getContextFromRootUri(Option.getOrElse(root, () => process.cwd()));
     }
 
-    function orderOf(root: Option.Option<string>) {
-      return Effect.flatMap(
-        config.getOrderFromRootUri(Option.getOrElse(root, () => process.cwd())),
-        Query.compileOrder,
-      );
+    function taskDirOf(root: Option.Option<string>) {
+      return Effect.map(contextOf(root), (context) => context.taskDir);
     }
 
     /** What `rg` searches for references is the repo, not the task dir. */
@@ -225,18 +222,16 @@ export const TaskHandlers = TaskToolkit.toLayer(
     return TaskToolkit.of({
       list_tasks: Effect.fnUntraced(
         function* (params) {
-          const taskDir = yield* taskDirOf(params.cwd);
+          const { config: cfg, taskDir } = yield* contextOf(params.cwd);
           const ops = yield* ListTasksParams.compile(params);
 
-          let program = app
-            .listFilesIn(taskDir)
-            .pipe(Stream.filterMapEffect((file) => Effect.result(app.readTask(file))));
+          let program = app.listFileInfoIn(taskDir);
 
           if (Option.isSome(ops)) {
             program = Stream.filter(program, Query.filter(ops.value));
           }
 
-          const tasks = yield* runCollectSorted(program, yield* orderOf(params.cwd));
+          const tasks = yield* runCollectSorted(program, yield* Query.compileOrder(cfg.order));
 
           return {
             tasks: Array.map(
@@ -312,7 +307,7 @@ export const TaskHandlers = TaskToolkit.toLayer(
             );
           }
 
-          return TaskSummary.of(yield* app.readTask(file));
+          return TaskSummary.of(yield* app.readTask(taskDir, file));
         },
         Effect.catch((err) => Effect.fail(toToolError(err))),
       ),
