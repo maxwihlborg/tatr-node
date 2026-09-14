@@ -82,13 +82,27 @@ export const fromCrock32Transform = SchemaTransformation.make<Uint8Array, string
  * A list yaml can spell any of the three ways: `a, b`, `[a, b]`, and a key with
  * nothing under it at all, which yaml reads as null and this reads as empty.
  */
+const Listish = Schema.Union([Schema.String, Schema.Array(Schema.String), Schema.Null]);
+
+function split(n: string | ReadonlyArray<string> | null) {
+  return n === null ? [] : Predicate.isString(n) ? n.split(",") : n;
+}
+
 export function fromCommaSeparated<S extends Schema.Codec<string, string>>(item: S) {
-  return Schema.Union([Schema.String, Schema.Array(Schema.String), Schema.Null]).pipe(
+  return Listish.pipe(
     Schema.decodeTo(Schema.Array(item), {
-      decode: SchemaGetter.transform((n) =>
-        n === null ? [] : Predicate.isString(n) ? n.split(",") : n,
-      ),
-      encode: SchemaGetter.transform((n) => n.join(", ")),
+      decode: SchemaGetter.transform(split),
+      encode: SchemaGetter.passthrough({ strict: false }),
+    }),
+  );
+}
+
+/** The same, written back the way front matter spells it: `a, b`. */
+export function toCommaSeparated<S extends Schema.Codec<string, string>>(item: S) {
+  return Listish.pipe(
+    Schema.decodeTo(Schema.Array(item), {
+      decode: SchemaGetter.transform(split),
+      encode: SchemaGetter.transform((n: ReadonlyArray<string>) => n.join(", ")),
     }),
   );
 }

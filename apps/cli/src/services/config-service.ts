@@ -13,7 +13,7 @@ import {
 import { FileUtils } from "./file-utils.js";
 import { fromCommaSeparated, fromYamlString } from "../lib/schema.js";
 import { Markers } from "../lib/marker.js";
-import { TaskTagArray } from "../schema.js";
+import { TaskTag } from "../schema.js";
 
 export const CONFIG_NAME = "tatr.config.yaml";
 
@@ -27,7 +27,7 @@ export const DEFAULT_MARKERS: Record<string, ReadonlyArray<string>> = {
   FEAT: ["feature"],
 };
 
-const MarkersFromRecord = Schema.Record(Schema.String, TaskTagArray).pipe(
+const MarkersFromRecord = Schema.Record(Schema.String, fromCommaSeparated(TaskTag)).pipe(
   Schema.decodeTo(Schema.instanceOf(Markers), {
     decode: SchemaGetter.transform((words) => new Markers(words)),
     encode: SchemaGetter.transform((markers: Markers) => markers.words),
@@ -71,6 +71,7 @@ export class TatrConfig extends Schema.Opaque<TatrConfig>()(
   }),
 ) {
   static decodeYaml = Schema.decodeEffect(fromYamlString(this));
+  static encodeYaml = Schema.encodeEffect(fromYamlString(this));
 }
 
 export interface TatrContext {
@@ -153,7 +154,15 @@ export class ConfigService extends Context.Service<ConfigService>()("@tatr/cli/C
       const taskDir = path.resolve(root, options.taskDir);
 
       yield* fs.makeDirectory(taskDir, { recursive: true });
-      yield* fs.writeFileString(configPath, `taskDir: ${options.taskDir}\n`);
+      yield* fs.writeFileString(
+        configPath,
+        yield* TatrConfig.encodeYaml({
+          taskDir: options.taskDir,
+          formatter: Option.none(),
+          order: DEFAULT_ORDER,
+          markers: new Markers(DEFAULT_MARKERS),
+        }),
+      );
 
       return { configPath, taskDir };
     });

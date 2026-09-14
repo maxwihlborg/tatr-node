@@ -1,11 +1,11 @@
 import { Effect, Schema, SchemaTransformation } from "effect";
-import { fromCommaSeparated, fromYamlString, omitDefault } from "./lib/schema";
+import { fromYamlString, omitDefault, toCommaSeparated } from "./lib/schema";
 
 export const TaskTag = Schema.String.pipe(
   Schema.decodeTo(Schema.Trim, SchemaTransformation.toLowerCase()),
 );
 
-export const TaskTagArray = fromCommaSeparated(TaskTag);
+export const TaskTagArray = toCommaSeparated(TaskTag);
 
 export class TaskInfo extends Schema.Opaque<TaskInfo>()(
   Schema.StructWithRest(
