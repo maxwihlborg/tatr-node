@@ -1,6 +1,7 @@
 ---
 title: "Tatr tag/untag command"
 priority: 50
+closed: true
 tags: cli
 ---
 

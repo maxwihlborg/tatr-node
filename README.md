@@ -64,6 +64,22 @@ Expected 'boolean' expr, got 'int' expr
   ╰──
 ```
 
+## Tagging in bulk
+
+`tatr tag` and `tatr untag` rewrite the tags of every task a query matches,
+`-t` repeatable:
+
+```
+tatr tag -t scope '.cli and prio gte 50'
+tatr untag -t scope '.cli and prio lt 50'
+```
+
+The query is the one `ls` takes, so running `ls` with it first shows exactly
+what is about to be rewritten. Both take `--status` the same way too, and
+default to `open` for the same reason. Tags are trimmed and lowercased, a task
+already as asked is left alone, and each task that does change prints what it
+gained or lost.
+
 ## Ordering
 
 `--order` takes a comma separated list of keys, each optionally prefixed with
