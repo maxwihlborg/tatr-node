@@ -1,6 +1,7 @@
 ---
 title: "Extend config command"
 priority: 80
+closed: true
 tags: cli, config
 ---
 

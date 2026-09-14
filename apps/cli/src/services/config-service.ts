@@ -71,7 +71,6 @@ export class TatrConfig extends Schema.Opaque<TatrConfig>()(
   }),
 ) {
   static decodeYaml = Schema.decodeEffect(fromYamlString(this));
-  static encodeJson = Schema.encodeEffect(Schema.fromJsonString(this, { space: 2 }));
 }
 
 export class ConfigService extends Context.Service<ConfigService>()("@tatr/cli/ConfigService", {

@@ -7,7 +7,6 @@ import { listTasks } from "./commands/list-tasks.js";
 import { mintId } from "./commands/mint-id.js";
 import { newTask } from "./commands/new-task.js";
 import { showConfig } from "./commands/show-config.js";
-import { showRoot } from "./commands/show-root.js";
 import { showTask } from "./commands/show-task.js";
 import { lspStart } from "./lsp/index.js";
 import { mcpStart } from "./mcp/index.js";
@@ -23,7 +22,6 @@ const cli = pipe(
     mintId,
     newTask,
     showConfig,
-    showRoot,
     showTask,
   ]),
 );

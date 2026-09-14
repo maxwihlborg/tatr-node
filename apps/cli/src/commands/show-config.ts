@@ -1,8 +1,18 @@
-import { Console, Effect, Layer, pipe } from "effect";
+import { Console, Effect, Layer, pipe, Schema } from "effect";
 import { Command } from "effect/unstable/cli";
 import { ConfigService, FileUtils, TatrConfig } from "../services/index.js";
 
 const ConfigLayer = ConfigService.layer.pipe(Layer.provide(FileUtils.layer));
+
+class ConfigOutput extends Schema.Opaque<ConfigOutput>()(
+  Schema.Struct({
+    config: TatrConfig,
+    /** Absolute, so a caller can open a task without resolving anything. */
+    root: Schema.String,
+  }),
+) {
+  static encodeJson = Schema.encodeEffect(Schema.fromJsonString(this, { space: 2 }));
+}
 
 export const showConfig = pipe(
   Command.make("config"),
@@ -10,8 +20,11 @@ export const showConfig = pipe(
   Command.withHandler(
     Effect.fnUntraced(function* () {
       const config = yield* ConfigService;
+      const context = yield* config.getContext;
 
-      yield* Console.log(yield* TatrConfig.encodeJson(yield* config.getConfig));
+      yield* Console.log(
+        yield* ConfigOutput.encodeJson({ config: context.config, root: context.taskDir }),
+      );
     }),
   ),
   Command.provide(ConfigLayer),

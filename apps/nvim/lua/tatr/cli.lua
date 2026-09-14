@@ -41,34 +41,38 @@ local function run(opts, cb)
   end
 end
 
---- `tatr root`: the task dir of the enclosing repo.
----@param opts { cmd: string[] }
----@param cb fun(dir: string?, err: string?)
-function M.root(opts, cb)
-  run({ cmd = opts.cmd, args = { "root" } }, function(lines, err)
-    if not lines then
-      return cb(nil, err)
-    end
-
-    cb(vim.fs.normalize(vim.trim(lines[1])), nil)
-  end)
-end
+---@class TatrContext
+---@field config { taskDir: string, order: string[], markers: table<string, string[]> }
+---@field root string absolute path of the task dir
 
 --- `tatr config`: the config of the enclosing repo, defaults filled in.
 ---@param opts { cmd: string[] }
----@param cb fun(config: { taskDir: string, order: string[], markers: table<string, string[]> }?, err: string?)
+---@param cb fun(ctx: TatrContext?, err: string?)
 function M.config(opts, cb)
   run({ cmd = opts.cmd, args = { "config" } }, function(lines, err)
     if not lines then
       return cb(nil, err)
     end
 
-    local ok, config = pcall(vim.json.decode, table.concat(lines, "\n"))
+    local ok, ctx = pcall(vim.json.decode, table.concat(lines, "\n"))
     if not ok then
-      return cb(nil, "could not read tatr config: " .. config)
+      return cb(nil, "could not read tatr config: " .. ctx)
     end
 
-    cb(config, nil)
+    cb(ctx, nil)
+  end)
+end
+
+--- The task dir of the enclosing repo, absolute, off `tatr config`.
+---@param opts { cmd: string[] }
+---@param cb fun(dir: string?, err: string?)
+function M.root(opts, cb)
+  M.config(opts, function(ctx, err)
+    if not ctx then
+      return cb(nil, err)
+    end
+
+    cb(vim.fs.normalize(ctx.root), nil)
   end)
 end
 

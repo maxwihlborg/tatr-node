@@ -30,7 +30,7 @@ Requires the `tatr` binary on `$PATH` and
 Everything after `:Tatr` is handed to `tatr ls` as a query, so the whole query
 DSL works. The picker lists the tasks the way `tatr ls` prints them, and
 selecting one opens the file, then runs `lcd` (see `cd` below) in that window
-into the dir `tatr root` reports.
+into the dir `tatr config` reports as `root`.
 
 `:TatrNew [title]` runs `tatr new`, then opens the task it created with `create`
 (`tabe` by default). Called without a title it asks for one through

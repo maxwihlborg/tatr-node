@@ -243,14 +243,15 @@ function M.todo(opts)
   local row = vim.api.nvim_win_get_cursor(win)[1]
   local line = vim.api.nvim_get_current_line()
 
-  cli.config({ cmd = cfg.cmd }, function(config, config_err)
-    if not config then
+  cli.config({ cmd = cfg.cmd }, function(ctx, config_err)
+    if not ctx then
       return M.fail(config_err)
     end
 
-    local marker = find_marker(line, config.markers)
+    local markers = ctx.config.markers
+    local marker = find_marker(line, markers)
     if not marker then
-      return M.fail(("No %s on this line"):format(table.concat(vim.tbl_keys(config.markers), "/")))
+      return M.fail(("No %s on this line"):format(table.concat(vim.tbl_keys(markers), "/")))
     end
 
     local rest = line:sub(marker.to + 1)

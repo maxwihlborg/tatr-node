@@ -106,10 +106,14 @@ them. The LSP code action and the neovim plugin's `:TatrTodo` both go by this
 map, so a marker means the same thing wherever it is claimed from.
 
 `tatr config` prints the whole thing as json with the defaults filled in, which
-is how the neovim plugin reads it:
+is how the neovim plugin reads it. `root` is the task dir resolved against the
+config's own location, so a caller can open a task without resolving anything:
 
-```
-tatr config
+```json
+{
+  "config": { "taskDir": "./tasks", "order": ["-priority", "title"], "markers": {} },
+  "root": "/home/you/code/project/tasks"
+}
 ```
 
 ## Agents
