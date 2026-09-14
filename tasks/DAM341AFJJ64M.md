@@ -1,6 +1,7 @@
 ---
 title: "Make bad task show up in list instead of stderr"
 priority: 60
+closed: true
 tags: cli, list
 ---
 

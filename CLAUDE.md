@@ -73,7 +73,11 @@ written as the absence of the key.
 `parseFullTask` (front matter and body, echoed back verbatim — the trim lives at
 the display sites), and `parseTask` (from text a caller already holds, for
 editor buffers fresher than the file). A task whose front matter does not decode
-is logged and skipped, never fatal, so one bad file cannot break `ls`.
+reads as the `broken(message)` placeholder in `app-service.ts` — priority `999`,
+titled `!! BROKEN, <what is wrong> !!` — so one bad file lists loudly instead of
+breaking `ls`. `parseFullTask` still fails on it, which is what `show` and
+`close` report, and what stops a bulk rewrite from flattening a file it cannot
+parse.
 
 **One query engine serves every front end.** `services/query.ts` parses the
 query DSL with the parser combinators in `lib/parser.ts`, type checks the `Expr`

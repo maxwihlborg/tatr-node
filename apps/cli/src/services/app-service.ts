@@ -48,6 +48,17 @@ export class TaskError extends Data.TaggedError("TaskError")<{
   readonly cause: unknown;
 }> {}
 
+/** What a task reads as when its front matter does not: a row that sorts above
+ * everything else and says what is wrong with it. */
+function broken(message: string) {
+  return TaskInfo.make({
+    title: `!! BROKEN, ${message} !!`,
+    priority: 999,
+    tags: [],
+    closed: false,
+  });
+}
+
 export class AppService extends Context.Service<AppService>()("@tatr/cli/AppService", {
   make: Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -109,16 +120,12 @@ export class AppService extends Context.Service<AppService>()("@tatr/cli/AppServ
         Effect.bind("info", () => {
           return extractFrontMatter(fileLines(file)).pipe(
             Effect.flatMap(TaskInfo.decodeYaml),
+            Effect.catchTag("NoSuchElementError", () =>
+              Effect.succeed(broken("MISSING FRONTMATTER")),
+            ),
+            Effect.catchTag("SchemaError", () => Effect.succeed(broken("INVALID FRONTMATTER"))),
             Effect.tapErrorTag("PlatformError", (err) => {
-              return Effect.logError(err);
-            }),
-            Effect.tapErrorTag("NoSuchElementError", () => {
-              return Effect.logError(`${path.relative(taskDir, file)}: No frontmatter`);
-            }),
-            Effect.tapErrorTag("SchemaError", (err) => {
-              return Effect.logError(
-                `${path.relative(taskDir, file)}: Invalid frontmatter\n\n${err.message}\n`,
-              );
+              return Effect.logError(`${path.relative(taskDir, file)}: ${err.message}`);
             }),
           );
         }),

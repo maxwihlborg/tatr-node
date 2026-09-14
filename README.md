@@ -17,8 +17,11 @@ Some information about this task
 
 `title` is required; `priority` defaults to `50` and `tags` to none. Tags may be
 written as a comma separated string or a YAML list, and are trimmed and
-lowercased. Files without valid front matter are skipped with a warning rather
-than failing the run.
+lowercased. A file whose front matter does not decode is listed at priority
+`999` as `!! BROKEN, MISSING FRONTMATTER !!` or `!! BROKEN, INVALID FRONTMATTER
+!!`, so it sorts to the top of `tatr ls` instead of failing the run or going
+unnoticed on stderr. Reading that one by id still reports what is actually wrong
+with it.
 
 ## Listing tasks
 
@@ -79,6 +82,18 @@ what is about to be rewritten. Both take `--status` the same way too, and
 default to `open` for the same reason. Tags are trimmed and lowercased, a task
 already as asked is left alone, and each task that does change prints what it
 gained or lost.
+
+`tatr prune` unlinks the task files instead, and takes the query the same way:
+
+```
+tatr prune '.cli'
+tatr prune -s closed
+```
+
+Either half is enough on its own — a query, a `--status` (`-s`), or both — but
+with neither it refuses rather than unlinking every open task because an
+argument was forgotten. Preview with `ls` first: what that lists is what this
+removes, and there is nothing to undo it with but the repo's own history.
 
 ## Ordering
 
