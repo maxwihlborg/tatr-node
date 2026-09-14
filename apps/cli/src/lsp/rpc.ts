@@ -461,7 +461,7 @@ export const LanguageServerRpcHandlers = LanguageServerRpcGroup.toLayer(
           const text = yield* formatter.format(
             context,
             taskFile,
-            app.formatTask({
+            yield* app.formatTask({
               title: marker.value.title.length > 0 ? marker.value.title : id,
               tags: Option.liftPredicate(marker.value.tags, Array.isReadonlyArrayNonEmpty),
               priority: Option.none(),

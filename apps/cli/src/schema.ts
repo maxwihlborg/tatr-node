@@ -1,5 +1,5 @@
 import { Effect, Schema, SchemaTransformation } from "effect";
-import { fromCommaSeparated, fromYamlString } from "./lib/schema";
+import { fromCommaSeparated, fromYamlString, omitDefault } from "./lib/schema";
 
 export const TaskTag = Schema.String.pipe(
   Schema.decodeTo(Schema.Trim, SchemaTransformation.toLowerCase()),
@@ -8,24 +8,24 @@ export const TaskTag = Schema.String.pipe(
 export const TaskTagArray = fromCommaSeparated(TaskTag);
 
 export class TaskInfo extends Schema.Opaque<TaskInfo>()(
-  Schema.Struct({
-    title: Schema.String,
-    priority: Schema.Int.pipe(Schema.withDecodingDefault(Effect.succeed(50))),
-    tags: TaskTagArray.pipe(Schema.withDecodingDefault(Effect.succeed([]))),
-    closed: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
-  }),
+  Schema.StructWithRest(
+    Schema.Struct({
+      title: Schema.String,
+      priority: Schema.Int.pipe(Schema.withDecodingDefault(Effect.succeed(50))),
+      tags: TaskTagArray.pipe(
+        Schema.withDecodingDefault(Effect.succeed([])),
+        omitDefault((tags: ReadonlyArray<string>) => tags.length === 0),
+      ),
+      closed: Schema.Boolean.pipe(
+        Schema.withDecodingDefault(Effect.succeed(false)),
+        omitDefault((closed: boolean) => !closed),
+      ),
+    }),
+    [Schema.Record(Schema.String, Schema.Unknown)],
+  ),
 ) {
   static decodeYaml = Schema.decodeEffect(fromYamlString(this));
-  static formatYaml({ tags, title, priority, closed }: TaskInfo) {
-    return [
-      `title: ${JSON.stringify(title)}`,
-      `priority: ${priority}`,
-      closed && `closed: true`,
-      tags.length > 0 && `tags: ${tags.join(", ")}`,
-    ]
-      .filter(Boolean)
-      .join("\n");
-  }
+  static encodeYaml = Schema.encodeEffect(fromYamlString(this));
 }
 
 export class Task extends Schema.Opaque()(

@@ -44,7 +44,10 @@ const main = pipe(
   Effect.catch((err) => {
     switch (err._tag) {
       case "ConfigError":
-      case "CompileError": {
+      case "CompileError":
+      // writing a task back is an encode, and a task that will not encode is
+      // one the caller has to hear about rather than a defect
+      case "SchemaError": {
         return abort(err.message);
       }
       case "TaskAlreadyExistError": {

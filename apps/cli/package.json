@@ -27,6 +27,7 @@
     "vitest": "catalog:core",
     "vscode-languageserver-protocol": "catalog:lsp",
     "vscode-languageserver-textdocument": "catalog:lsp",
-    "vscode-languageserver-types": "catalog:lsp"
+    "vscode-languageserver-types": "catalog:lsp",
+    "yaml": "catalog:cli"
   }
 }

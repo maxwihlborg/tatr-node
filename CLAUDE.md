@@ -60,13 +60,14 @@ A task is a markdown file in the task dir named after its id, with YAML front
 matter. `TaskInfo` in `src/schema.ts` (title, priority, tags, closed) is the
 whole data model — there is no database and no index.
 
-**Front matter is parsed but barely written.** Effect's
-`effect/unstable/encoding` ships `Yaml.parse` and no serializer (same for its
-`Toml` and `Ini`), which is why `lib/schema.ts` declares yaml encoding
-forbidden. Writes go through `TaskInfo.formatYaml`, which re-emits the four
-known fields by hand. Consequences worth knowing: any front matter key outside
-the schema is silently dropped when a task is rewritten, and `closed: false` is
-written as the absence of the key.
+**Front matter goes through the `yaml` package, both ways.** Effect's
+`effect/unstable/encoding` ships a `Yaml.parse` that cannot read a scalar folded
+across lines and no serializer at all, so `lib/schema.ts` uses `yaml` for both
+directions. `TaskInfo` closes over a `Schema.Record` rest, so keys outside the
+schema survive a rewrite rather than being dropped. The hand written shape is
+kept by `omitDefault` in `lib/schema.ts`: `closed: false` and an empty `tags`
+are written as the absence of the key, and tags join with `, ` rather than
+becoming a yaml list. Titles are quoted only when yaml requires it.
 
 **Reading has three entry points** on `AppService`, deliberately distinct:
 `readTask` (streams front matter only, plus `stat`, for listing),

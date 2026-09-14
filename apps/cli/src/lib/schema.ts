@@ -1,12 +1,14 @@
 import {
   Schema,
+  Option,
   SchemaGetter,
   Effect,
   Predicate,
   SchemaIssue,
   SchemaTransformation,
 } from "effect";
-import { Yaml } from "effect/unstable/encoding";
+import { dual } from "effect/Function";
+import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 
 const ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 const BITS_PER_CHAR = 5;
@@ -16,10 +18,10 @@ export const fromYamlStringTransform = SchemaTransformation.make<unknown, string
     Effect.try({
       catch: () =>
         new SchemaIssue.InvalidValue({ message: "could not be parsed as yaml" }, text, options),
-      try: () => Yaml.parse(text),
+      try: () => parseYaml(text),
     }),
   ),
-  encode: SchemaGetter.forbidden(() => "Yaml encoding is not supported by effect"),
+  encode: SchemaGetter.transform((value) => stringifyYaml(value)),
 });
 
 export const fromCrock32Transform = SchemaTransformation.make<Uint8Array, string>({
@@ -86,7 +88,7 @@ export function fromCommaSeparated<S extends Schema.Codec<string, string>>(item:
       decode: SchemaGetter.transform((n) =>
         n === null ? [] : Predicate.isString(n) ? n.split(",") : n,
       ),
-      encode: SchemaGetter.passthrough(),
+      encode: SchemaGetter.transform((n) => n.join(", ")),
     }),
   );
 }
@@ -98,3 +100,22 @@ export function fromYamlString<S extends Schema.Top>(schema: S) {
 export function fromCrock32String<S extends Schema.ConstraintEncoder<Uint8Array>>(schema: S) {
   return Schema.String.pipe(Schema.decodeTo(schema, fromCrock32Transform));
 }
+
+export const omitDefault: {
+  <S extends Schema.Top>(
+    self: S,
+    isDefault: (value: S["Type"]) => boolean,
+  ): Schema.decodeTo<Schema.toType<S>, S>;
+  <T>(
+    isDefault: (value: T) => boolean,
+  ): <S extends Schema.ConstraintDecoder<T>>(self: S) => Schema.decodeTo<Schema.toType<S>, S>;
+} = dual(2, <S extends Schema.Top>(self: S, isDefault: (value: S["Type"]) => boolean) =>
+  self.pipe(
+    Schema.decodeTo(Schema.toType(self), {
+      decode: SchemaGetter.passthrough(),
+      encode: SchemaGetter.transformOptional(
+        Option.filter((value: S["Type"]) => !isDefault(value)),
+      ),
+    }),
+  ),
+);

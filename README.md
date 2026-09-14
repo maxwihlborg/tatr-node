@@ -179,11 +179,11 @@ out at all:
 | `list_tasks`  | filtered by `tags`, `minPriority`, `maxPriority`, `status`, `limit` |
 | `show_task`   | one task by id, front matter and body                               |
 | `create_task` | `title` with optional `tags`, `priority` and `body`                 |
+| `close_task`  | one task by id, already closed is answered for as it stands          |
 
 Every tool takes a `cwd`, the directory to resolve `tatr.config.yaml` from, so
 one server answers for whatever repo the agent is working in. Without it the
-server's own working directory is used. There is no tool for changing a task
-yet: writing front matter back needs a yaml serializer that does not exist.
+server's own working directory is used.
 
 ## Layout
 

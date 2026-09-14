@@ -1,4 +1,4 @@
-import { Array, Console, Effect, Layer, Stream, Struct, pipe } from "effect";
+import { Array, Console, Effect, Layer, Stream, pipe } from "effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import type { Task } from "../schema.js";
 import { AppService, ConfigService, FileUtils, Formatter, Query } from "../services/index.js";
@@ -59,7 +59,10 @@ const rewriteTags = Effect.fnUntraced(function* (params: TagMoveCommandParams, r
     Stream.filter((task) => rewrite.moved(task).length > 0),
     Stream.mapEffect((task) =>
       app
-        .updateTaskInfo(context, task.file, Struct.evolve({ tags: rewrite.next }))
+        .updateTaskInfo(context, task.file, (info) => ({
+          ...info,
+          tags: rewrite.next(info.tags),
+        }))
         .pipe(Effect.andThen(Console.log(rewrite.report(task.id, rewrite.moved(task))))),
     ),
     Stream.runCount,

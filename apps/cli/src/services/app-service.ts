@@ -274,21 +274,25 @@ export class AppService extends Context.Service<AppService>()("@tatr/cli/AppServ
     }
 
     function formatTask(task: TaskFields) {
-      return [
-        "---",
-        TaskInfo.formatYaml({
+      return Effect.map(
+        TaskInfo.encodeYaml({
           title: task.title,
           priority: Option.getOrElse(task.priority, () => 50),
           closed: false,
           tags: Option.getOrElse(task.tags, () => []),
         }),
-        "---",
-        ...Option.match(task.body, {
-          onNone: () => [],
-          onSome: (body) => ["", body.trim(), ""],
-        }),
-        "\n",
-      ].join("\n");
+        (matter) =>
+          [
+            "---",
+            matter.trimEnd(),
+            "---",
+            ...Option.match(task.body, {
+              onNone: () => [],
+              onSome: (body) => ["", body.trim(), ""],
+            }),
+            "\n",
+          ].join("\n"),
+      );
     }
 
     const saveTaskIn = Effect.fnUntraced(function* (
@@ -300,9 +304,9 @@ export class AppService extends Context.Service<AppService>()("@tatr/cli/AppServ
 
       yield* Effect.when(Effect.fail(new TaskAlreadyExistError({ id })), fs.exists(filePath));
 
-      yield* fs.writeFileString(
-        filePath,
-        yield* formatter.format(context, filePath, formatTask(task)),
+      yield* formatTask(task).pipe(
+        Effect.flatMap((text) => formatter.format(context, filePath, text)),
+        Effect.flatMap((text) => fs.writeFileString(filePath, text)),
       );
 
       return yield* readTask(context.taskDir, filePath);
@@ -315,14 +319,11 @@ export class AppService extends Context.Service<AppService>()("@tatr/cli/AppServ
     ) {
       const task = yield* parseFullTask(file);
 
-      const content = [
-        "---", //
-        TaskInfo.formatYaml(update(task.info)),
-        "---",
-        task.body,
-      ].join("\n");
-
-      yield* fs.writeFileString(file, yield* formatter.format(context, file, content));
+      yield* TaskInfo.encodeYaml(update(task.info)).pipe(
+        Effect.map((matter) => ["---", matter.trimEnd(), "---", task.body].join("\n")),
+        Effect.flatMap((text) => formatter.format(context, file, text)),
+        Effect.flatMap((text) => fs.writeFileString(file, text)),
+      );
     });
 
     return {
