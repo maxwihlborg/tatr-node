@@ -1,8 +1,8 @@
 ---
-title: "Close command, mark a task as closed"
+title: Close command, mark a task as closed
 priority: 50
-closed: true
 tags: cli, mcp
+closed: true
 ---
 
 Follow up on [DAENP4NGZQGMP], which left "mark as completed (require yaml

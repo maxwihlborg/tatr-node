@@ -1,8 +1,8 @@
 ---
-title: "Add json and or agent format"
+title: Add json and or agent format
 priority: 50
-closed: true
 tags: cli, show
+closed: true
 ---
 
 # Goal

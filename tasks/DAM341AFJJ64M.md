@@ -1,8 +1,8 @@
 ---
-title: "Make bad task show up in list instead of stderr"
+title: Make bad task show up in list instead of stderr
 priority: 60
-closed: true
 tags: cli, list
+closed: true
 ---
 
 Instead of printing to stdout, let's do rows with high prio `999` and set tile

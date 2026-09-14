@@ -1,8 +1,8 @@
 ---
-title: "Task prune command"
+title: Task prune command
 priority: 50
-closed: true
 tags: cli
+closed: true
 ---
 
 Would be nice to bulk remove based on queries/flags.

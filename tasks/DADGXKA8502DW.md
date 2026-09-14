@@ -1,8 +1,8 @@
 ---
-title: "LSP completions"
+title: LSP completions
 priority: 50
-closed: true
 tags: lsp
+closed: true
 ---
 
 Add autocomplete to the lsp, markers are questionable, probably `[`, if possible

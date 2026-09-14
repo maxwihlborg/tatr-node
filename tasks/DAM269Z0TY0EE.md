@@ -1,8 +1,8 @@
 ---
-title: "Read markers from tatr config"
+title: Read markers from tatr config
 priority: 50
-closed: true
 tags: cli, config, lsp
+closed: true
 ---
 
 The `TODO`/`FIXME`/`FEAT` to tags mapping is hard coded twice, in

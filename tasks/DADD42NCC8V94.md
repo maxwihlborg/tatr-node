@@ -1,5 +1,5 @@
 ---
-title: "Catch and print domain errors in the main application"
+title: Catch and print domain errors in the main application
 priority: 50
 closed: true
 ---

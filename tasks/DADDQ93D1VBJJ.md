@@ -1,5 +1,5 @@
 ---
-title: "Simple LSP"
+title: Simple LSP
 priority: 50
 tags: cli, lsp
 closed: true

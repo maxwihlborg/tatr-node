@@ -1,5 +1,5 @@
 ---
-title: "Mint and upsert tasks"
+title: Mint and upsert tasks
 priority: 25
 tags: nvim
 closed: true

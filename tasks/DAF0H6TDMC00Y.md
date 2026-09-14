@@ -1,8 +1,8 @@
 ---
-title: "Make references default false"
+title: Make references default false
 priority: 50
-closed: true
 tags: lsp
+closed: true
 ---
 
 Since it requires ripgrep to be installed anyways, so change from opt-out to

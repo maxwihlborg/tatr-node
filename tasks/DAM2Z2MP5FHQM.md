@@ -1,8 +1,8 @@
 ---
-title: "Extend config command"
+title: Extend config command
 priority: 80
-closed: true
 tags: cli, config
+closed: true
 ---
 
 Should still print absolute path to task `dir`

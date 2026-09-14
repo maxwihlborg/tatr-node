@@ -1,8 +1,8 @@
 ---
-title: "Support references"
+title: Support references
 priority: 50
-closed: true
 tags: feature, lsp
+closed: true
 ---
 
 Support goto reference in `lsp`

@@ -1,5 +1,5 @@
 ---
-title: "Split the bundle per subcommand"
+title: Split the bundle per subcommand
 priority: 40
 tags: core, cli
 ---

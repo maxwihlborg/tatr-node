@@ -1,8 +1,8 @@
 ---
-title: "Read default sort order from tatr config"
+title: Read default sort order from tatr config
 priority: 50
-closed: true
 tags: cli, config
+closed: true
 ---
 
 The `--order` flag on `tatr ls` hard codes `["-priority", "title"]` as its

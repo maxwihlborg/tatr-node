@@ -1,5 +1,5 @@
 ---
-title: "Add order options"
+title: Add order options
 priority: 50
 tags: feature, nvim
 closed: true

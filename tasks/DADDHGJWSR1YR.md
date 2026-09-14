@@ -1,5 +1,5 @@
 ---
-title: "Turn TODO/FIXME comments into tasks"
+title: Turn TODO/FIXME comments into tasks
 priority: 50
 tags: nvim
 closed: true

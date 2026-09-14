@@ -1,4 +1,4 @@
-import { Array, Console, Effect, Layer, Stream, pipe } from "effect";
+import { Array, Console, Effect, Layer, Option, Stream, String, pipe } from "effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import type { Task } from "../schema.js";
 import { AppService, ConfigService, FileUtils, Formatter, Query } from "../services/index.js";
@@ -9,9 +9,10 @@ const TagLayer = AppService.layer.pipe(
   Layer.provide(FileUtils.layer),
 );
 
-const query = Argument.atLeast(Argument.string("query"), 1).pipe(
+const query = Argument.variadic(Argument.string("query")).pipe(
   Argument.withDescription("Query DSL, which tasks to rewrite"),
   Argument.map((q) => Query.normalize(q, " ")),
+  Argument.map(Option.liftPredicate(String.isNonEmpty)),
 );
 
 const tags = Flag.atLeast(Flag.string("tag"), 1).pipe(
@@ -21,8 +22,9 @@ const tags = Flag.atLeast(Flag.string("tag"), 1).pipe(
 );
 
 const status = Flag.choice("status", ["open", "closed", "all"]).pipe(
+  Flag.withAlias("s"),
   Flag.withDescription("Which tasks to rewrite, by their 'closed' front matter"),
-  Flag.withDefault("open"),
+  Flag.optional,
 );
 
 interface Rewrite {
@@ -32,8 +34,8 @@ interface Rewrite {
 }
 
 interface TagMoveCommandParams {
-  readonly query: string;
-  readonly status: "open" | "closed" | "all";
+  readonly query: Option.Option<string>;
+  readonly status: Option.Option<"open" | "closed" | "all">;
 }
 
 /**
@@ -44,14 +46,24 @@ const rewriteTags = Effect.fnUntraced(function* (params: TagMoveCommandParams, r
   const config = yield* ConfigService;
   const app = yield* AppService;
 
+  // Neither is every open task, which is not a thing to rewrite because an
+  // argument was forgotten
+  if (Option.isNone(params.query) && Option.isNone(params.status)) {
+    process.exitCode = 1;
+    return yield* Console.log("Pass a query or a status, tags move on what they match");
+  }
+
   const context = yield* config.getContext;
-  const ops = yield* Query.compileQuery(params.query);
+  const wanted = Option.getOrElse(params.status, () => "open");
 
-  let program = Stream.filter(app.listFileInfoIn(context.taskDir), Query.filter(ops));
+  let program = app.listFileInfoIn(context.taskDir);
 
-  if (params.status !== "all") {
-    const closed = params.status === "closed";
-    program = Stream.filter(program, (task) => task.info.closed === closed);
+  if (wanted !== "all") {
+    program = Stream.filter(program, (task) => task.info.closed === (wanted === "closed"));
+  }
+
+  if (Option.isSome(params.query)) {
+    program = Stream.filter(program, Query.filter(yield* Query.compileQuery(params.query.value)));
   }
 
   const written = yield* pipe(

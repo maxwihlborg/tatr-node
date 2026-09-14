@@ -1,5 +1,5 @@
 ---
-title: "Cycle status in the fzf picker"
+title: Cycle status in the fzf picker
 priority: 50
 tags: nvim
 closed: true

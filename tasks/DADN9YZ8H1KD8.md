@@ -1,5 +1,5 @@
 ---
-title: "Create a htmx simple server viewing tasks"
+title: Create a htmx simple server viewing tasks
 priority: 50
 tags: view
 ---
