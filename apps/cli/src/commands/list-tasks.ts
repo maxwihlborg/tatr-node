@@ -32,20 +32,24 @@ export const listTasks = pipe(
     ),
     sort: Flag.boolean("sort").pipe(Flag.withDefault(true)),
     order: Flag.atLeast(Flag.string("order"), 1).pipe(
-      Flag.withDescription("How to order the tasks"),
-      Flag.withDefault(["-priority", "title"]),
-      Flag.map((order) => Query.normalize(order, ", ")),
-      Flag.map(Option.liftPredicate(String.isNonEmpty)),
+      Flag.withDescription("How to order the tasks, defaults to the config's 'order'"),
+      Flag.optional,
     ),
   }),
   Command.withDescription("List tasks in the repo"),
   Command.withHandler(
-    Effect.fnUntraced(function* ({ query, sort, order, format, status, interactive }) {
+    Effect.fnUntraced(function* ({ query, sort, order: orderFlag, format, status, interactive }) {
       const printer = yield* Printer;
       const stdio = yield* Stdio;
       const config = yield* ConfigService;
       const app = yield* AppService;
       const fzf = yield* Fzf;
+
+      const order = yield* pipe(
+        Effect.fromOption(orderFlag),
+        Effect.catch(() => config.getOrder),
+        Effect.map((n) => Option.liftPredicate(Query.normalize(n, ", "), String.isNonEmpty)),
+      );
 
       if (interactive) {
         return yield* Effect.scoped(

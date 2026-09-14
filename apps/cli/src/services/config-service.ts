@@ -4,10 +4,9 @@ import { fromYamlString } from "../lib/schema.js";
 
 export const CONFIG_NAME = "tatr.config.yaml";
 
-/** A task is a markdown file in the task dir named after its id. Local on
- * purpose: the day this comes out of the config, everything that depends on it
- * is already here. */
 const TASK_EXT = ".md";
+
+export const DEFAULT_ORDER = ["-priority", "title"];
 
 export type ConfigErrorReason = Data.TaggedEnum<{
   AlreadyExist: { path: string };
@@ -39,6 +38,9 @@ export class TatrConfig extends Schema.Opaque<TatrConfig>()(
   Schema.Struct({
     taskDir: Schema.String,
     formatter: Schema.OptionFromOptionalKey(Schema.Literal("oxfmt")),
+    order: Schema.Union([Schema.String, Schema.Array(Schema.String)]).pipe(
+      Schema.withDecodingDefault(Effect.succeed(DEFAULT_ORDER)),
+    ),
   }),
 ) {
   static decodeYaml = Schema.decodeEffect(fromYamlString(this));
@@ -91,6 +93,8 @@ export class ConfigService extends Context.Service<ConfigService>()("@tatr/cli/C
       Effect.cached,
     );
 
+    const getOrder = Effect.map(getConfig, (config) => config.order);
+
     const initConfig = Effect.fnUntraced(function* (options: { taskDir: string; force: boolean }) {
       const root = yield* Effect.orElseSucceed(
         Effect.map(fu.findDir(".git"), (gitDir) => path.dirname(gitDir)),
@@ -111,6 +115,14 @@ export class ConfigService extends Context.Service<ConfigService>()("@tatr/cli/C
 
       return { configPath, taskDir };
     });
+
+    function getConfigFromRootUri(rootUri: string) {
+      return Effect.flatMap(findConfigPathFrom(rootUri), readConfigFrom);
+    }
+
+    function getOrderFromRootUri(rootUri: string) {
+      return Effect.map(getConfigFromRootUri(rootUri), (config) => config.order);
+    }
 
     function getTaskDirFromRootUri(rootUri: string) {
       return Effect.Do.pipe(
@@ -151,6 +163,8 @@ export class ConfigService extends Context.Service<ConfigService>()("@tatr/cli/C
 
     return {
       getRootDirFromRootUri,
+      getConfigFromRootUri,
+      getOrderFromRootUri,
       getTaskDirFromRootUri,
       taskFilePathIn,
       getTaskFilePath,
@@ -161,6 +175,7 @@ export class ConfigService extends Context.Service<ConfigService>()("@tatr/cli/C
       findConfigPath,
       getTaskDir,
       getConfig,
+      getOrder,
       initConfig,
     };
   }),

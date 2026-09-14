@@ -12,7 +12,6 @@ local function list_command(cfg)
   -- --color: nothing is a tty here, --log-level=none: the cli's skipped-file
   -- logs would end up in the list. --status first so `args` can override it
   local args = { "ls", "--color", "--log-level=none", "--status=" .. cfg.fzf.status }
-  vim.list_extend(args, cli.order(cfg.order))
   vim.list_extend(args, cfg.args)
 
   local parts = {}

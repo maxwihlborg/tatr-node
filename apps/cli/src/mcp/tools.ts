@@ -122,7 +122,8 @@ class ListTasksParams extends Schema.Opaque<ListTasksParams>()(
 
 export const ListTasks = Tool.make("list_tasks", {
   description:
-    "List the tasks of a tatr repo, highest priority first. Filters are combined, " +
+    "List the tasks of a tatr repo, in the order the repo is configured to list them, " +
+    "highest priority first unless it says otherwise. Filters are combined, " +
     "and a task must carry every tag given to match. Bodies are not included, " +
     "ask for a task by id to read one.",
   parameters: ListTasksParams,
@@ -205,10 +206,15 @@ export const TaskHandlers = TaskToolkit.toLayer(
     const app = yield* AppService;
     const fs = yield* FileSystem.FileSystem;
 
-    const order = yield* Query.compileOrder(["-priority", "title"]);
-
     function taskDirOf(root: Option.Option<string>) {
       return config.getTaskDirFromRootUri(Option.getOrElse(root, () => process.cwd()));
+    }
+
+    function orderOf(root: Option.Option<string>) {
+      return Effect.flatMap(
+        config.getOrderFromRootUri(Option.getOrElse(root, () => process.cwd())),
+        Query.compileOrder,
+      );
     }
 
     /** What `rg` searches for references is the repo, not the task dir. */
@@ -230,7 +236,7 @@ export const TaskHandlers = TaskToolkit.toLayer(
             program = Stream.filter(program, Query.filter(ops.value));
           }
 
-          const tasks = yield* runCollectSorted(program, order);
+          const tasks = yield* runCollectSorted(program, yield* orderOf(params.cwd));
 
           return {
             tasks: Array.map(

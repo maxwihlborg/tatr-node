@@ -68,8 +68,20 @@ Expected 'boolean' expr, got 'int' expr
 
 `--order` takes a comma separated list of keys, each optionally prefixed with
 `-` to reverse it: `title`, `tags`, `id`, `size`, `priority` (`prio`), `mtime`
-(`modified`, `mod`), and `btime` (`created`). The default is
-`-priority, title`. Pass `--no-sort` to leave the tasks in directory order.
+(`modified`, `mod`), and `btime` (`created`). Pass `--no-sort` to leave the
+tasks in directory order.
+
+Without the flag the repo decides, through `order` in its `tatr.config.yaml`,
+written either way round:
+
+```yaml
+order: -priority, title
+order: [-priority, title]
+```
+
+That is what the fzf picker, the neovim plugin, and the MCP `list_tasks` tool
+list by too, since none of them pass an order of their own. Absent the key the
+default is `-priority, title`.
 
 ## Agents
 
