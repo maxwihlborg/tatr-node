@@ -1,12 +1,39 @@
 {
-  "name": "@tatr/cli",
+  "name": "tatr-node",
   "version": "1.5.0",
-  "private": true,
+  "description": "A command line task tracker that reads its tasks from markdown files, with a query language, an LSP and an MCP server",
+  "keywords": [
+    "cli",
+    "front-matter",
+    "fzf",
+    "issue-tracker",
+    "language-server",
+    "lsp",
+    "markdown",
+    "mcp",
+    "neovim",
+    "task",
+    "task-tracker",
+    "tasks",
+    "todo",
+    "yaml"
+  ],
+  "license": "MIT",
+  "author": "Max Wihlborg",
+  "repository": "github:maxwihlborg/tatr-node",
   "bin": {
     "tatr": "./bin/tatr.js"
   },
+  "files": [
+    "bin",
+    "dist"
+  ],
   "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
+    "prepack": "pnpm run build",
     "build": "tsc && rolldown -c",
     "lint": "oxlint",
     "format": "oxfmt **/*.{ts,md,json}",

@@ -5,4 +5,5 @@ autoTags:
   apps/cli: cli
   apps/cli/src/lsp: lsp
   apps/cli/src/mcp: mcp
-  apps/nvim: nvim
+  lua: nvim
+  plugin: nvim

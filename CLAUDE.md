@@ -6,7 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 The `justfile` at the root is the front door, and every recipe fans out over the
 workspace through turbo, so these run from the repo root. In practice that means
-`apps/cli`, the only package with a build — `apps/nvim` is Lua.
+`apps/cli`, the only package with a build — the neovim plugin is Lua, and sits
+at the repo root as `lua/` and `plugin/` because lazy.nvim installs a repo
+rather than a directory inside one.
 
 ```sh
 just build         # tsc && rolldown -> apps/cli/dist/index.js
@@ -22,7 +24,7 @@ the package, so there is no reason to `cd`:
 ```sh
 pnpm exec vitest --run -t "mints ids"            # one test by name
 pnpm exec turbo run lint                         # oxlint, fails on unused imports
-pnpm --filter @tatr/cli exec tsc --noEmit -p .   # typecheck alone, faster than build
+pnpm --filter tatr-node exec tsc --noEmit -p .   # typecheck alone, faster than build
 ```
 
 Stay in the working directory you were given. Paths in the conversation are

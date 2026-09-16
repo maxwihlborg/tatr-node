@@ -1,5 +1,5 @@
 {
-  "name": "tatr-node",
+  "name": "tatr-node-root",
   "private": true,
   "type": "module",
   "devDependencies": {

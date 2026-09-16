@@ -87,9 +87,10 @@ const exprParser: P.Parser<Expr.Expr> = P.buildExpressionParser(
   () =>
     P.choice([
       P.surround(P.literalToken("("), exprParser, P.literalToken(")")),
+      P.surround(P.literalToken("["), exprParser, P.literalToken("]")),
       P.mapToken(P.literal("priority", "prio"), (_, i) => Expr.Expr.Prio({ i })),
       P.mapToken(P.int, (value, i) => Expr.Expr.Int({ value, i })),
-      P.mapToken(P.regex(/\.[a-z0-9_-]+/), (tag, i) => Expr.Expr.Tag({ tag: tag[0].slice(1), i })),
+      P.mapToken(P.regex(/[.:][a-z0-9_-]+/), (tag, i) => Expr.Expr.Tag({ tag: tag[0].slice(1), i })),
     ]),
 );
 
