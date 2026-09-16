@@ -1,4 +1,5 @@
 import {
+  Array,
   Cause,
   Context,
   String,
@@ -90,6 +91,35 @@ export class AppService extends Context.Service<AppService>()("@tatr/cli/AppServ
         cwd: root,
         absolute: true,
       });
+    }
+
+    /**
+     * The tags a task gets for having come out of `origins`, unioned with the
+     * ones already given. Relative to the config, never the cwd — the lsp and
+     * the mcp server answer for a repo they are not standing in — and matched
+     * by `relative`, so a rule stops at a segment and `apps/cli` has nothing to
+     * say about `apps/cli-legacy`.
+     */
+    function taggedFor(
+      context: TatrContext,
+      origins: ReadonlyArray<string>,
+      given: Option.Option<ReadonlyArray<string>>,
+    ): Option.Option<ReadonlyArray<string>> {
+      const root = path.dirname(context.configPath);
+      const rules = Object.entries(context.config.autoTags.rules);
+
+      const auto = origins.flatMap((origin) => {
+        const file = path.relative(root, path.resolve(origin));
+
+        return rules.flatMap(([rule, tags]) =>
+          path.relative(rule, file).startsWith("..") ? [] : tags,
+        );
+      });
+
+      return Option.liftPredicate(
+        Array.dedupe([...Option.getOrElse(given, () => []), ...auto]),
+        Array.isReadonlyArrayNonEmpty,
+      );
     }
 
     function listTaskIdsIn(taskDir: string) {
@@ -385,6 +415,7 @@ export class AppService extends Context.Service<AppService>()("@tatr/cli/AppServ
       readTask,
       referencesOf,
       resolveTaskIn,
+      taggedFor,
       saveTaskIn,
       updateTaskInfo,
     };

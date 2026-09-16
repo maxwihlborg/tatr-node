@@ -1,3 +1,8 @@
 taskDir: ./tasks
 formatter: oxfmt
 order: [-priority, -id]
+autoTags:
+  apps/cli: cli
+  apps/cli/src/lsp: lsp
+  apps/cli/src/mcp: mcp
+  apps/nvim: nvim

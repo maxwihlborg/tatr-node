@@ -146,7 +146,8 @@ export const ShowTask = Tool.make("show_task", {
 export const CreateTask = Tool.make("create_task", {
   description:
     "Create a task in a tatr repo. The id is minted, the file is named after it. " +
-    "Priority defaults to 50, and a higher one is more important.",
+    "Priority defaults to 50, and a higher one is more important. " +
+    "Pass the files the task came out of, which the repo may map to tags of its own.",
   parameters: Schema.Struct({
     title: Schema.String.annotate({
       description: "The one line the task is known by",
@@ -168,6 +169,15 @@ export const CreateTask = Tool.make("create_task", {
       Schema.optionalKey,
       Schema.annotate({
         description: "Markdown body, written under the front matter",
+      }),
+    ),
+    files: Schema.Array(Schema.String).pipe(
+      Schema.optionalKey,
+      Schema.annotate({
+        description:
+          "Absolute paths of the files the task came out of, which the repo's " +
+          "'autoTags' may add tags for. 'cwd' is the repo rather than the file, " +
+          "so leaving these out misses those tags",
       }),
     ),
   }),
@@ -275,7 +285,7 @@ export const TaskHandlers = TaskToolkit.toLayer(
 
           const task = yield* app.saveTaskIn(context, yield* mint.nextId, {
             title: params.title,
-            tags: Option.fromUndefinedOr(params.tags),
+            tags: app.taggedFor(context, params.files ?? [], Option.fromUndefinedOr(params.tags)),
             priority: Option.fromUndefinedOr(params.priority),
             body: Option.fromUndefinedOr(params.body),
           });

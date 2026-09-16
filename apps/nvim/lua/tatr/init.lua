@@ -76,6 +76,16 @@ function M.format_item(task)
   return ("%s: [priority: %d%s] %s"):format(task.id, task.info.priority, tags, task.info.title)
 end
 
+--- Where a task being made is coming from, for the repo's `autoTags`. An
+--- unnamed scratch buffer is nowhere, and says so.
+---@param buf integer?
+---@return string[]
+local function origin(buf)
+  local name = vim.api.nvim_buf_get_name(buf or 0)
+
+  return name ~= "" and { name } or {}
+end
+
 --- Open the file, then cd the window it landed in into the task dir.
 ---@param file string
 ---@param cfg TatrConfig
@@ -127,7 +137,7 @@ end
 function M.new(opts)
   local cfg = M.resolve(opts)
 
-  cli.new({ cmd = cfg.cmd, title = (opts or {}).title or {} }, function(file, err)
+  cli.new({ cmd = cfg.cmd, title = (opts or {}).title or {}, files = origin() }, function(file, err)
     if not file then
       return M.fail(err)
     end
@@ -188,7 +198,7 @@ function M.upsert(opts)
   local open = vim.tbl_deep_extend("force", cfg, { open = cfg.upsert })
 
   local function create(words)
-    cli.new({ cmd = cfg.cmd, id = id, title = words }, function(file, err)
+    cli.new({ cmd = cfg.cmd, id = id, title = words, files = origin() }, function(file, err)
       if not file then
         return M.fail(err)
       end
@@ -257,7 +267,9 @@ function M.todo(opts)
     local rest = line:sub(marker.to + 1)
 
     local function claim(title)
-      cli.new({ cmd = cfg.cmd, title = { title }, tags = marker.tags }, function(file, err)
+      local opts = { cmd = cfg.cmd, title = { title }, tags = marker.tags, files = origin(buf) }
+
+      cli.new(opts, function(file, err)
         if not file then
           return M.fail(err)
         end

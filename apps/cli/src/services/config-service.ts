@@ -11,7 +11,8 @@ import {
   Option,
 } from "effect";
 import { FileUtils } from "./file-utils.js";
-import { fromCommaSeparated, fromYamlString } from "../lib/schema.js";
+import { fromCommaSeparated, fromYamlString, omitDefault } from "../lib/schema.js";
+import { AutoTags } from "../lib/auto-tags.js";
 import { Markers } from "../lib/marker.js";
 import { TaskTag } from "../schema.js";
 
@@ -31,6 +32,13 @@ const MarkersFromRecord = Schema.Record(Schema.String, fromCommaSeparated(TaskTa
   Schema.decodeTo(Schema.instanceOf(Markers), {
     decode: SchemaGetter.transform((words) => new Markers(words)),
     encode: SchemaGetter.transform((markers: Markers) => markers.words),
+  }),
+);
+
+const AutoTagsFromRecord = Schema.Record(Schema.String, fromCommaSeparated(TaskTag)).pipe(
+  Schema.decodeTo(Schema.instanceOf(AutoTags), {
+    decode: SchemaGetter.transform((rules) => new AutoTags(rules)),
+    encode: SchemaGetter.transform((autoTags: AutoTags) => autoTags.rules),
   }),
 );
 
@@ -68,6 +76,10 @@ export class TatrConfig extends Schema.Opaque<TatrConfig>()(
       Schema.withDecodingDefault(Effect.succeed(DEFAULT_ORDER)),
     ),
     markers: MarkersFromRecord.pipe(Schema.withDecodingDefault(Effect.succeed(DEFAULT_MARKERS))),
+    autoTags: AutoTagsFromRecord.pipe(
+      omitDefault((autoTags: AutoTags) => autoTags.isEmpty),
+      Schema.withDecodingDefault(Effect.succeed({})),
+    ),
   }),
 ) {
   static decodeYaml = Schema.decodeEffect(fromYamlString(this));
@@ -161,6 +173,7 @@ export class ConfigService extends Context.Service<ConfigService>()("@tatr/cli/C
           formatter: Option.none(),
           order: DEFAULT_ORDER,
           markers: new Markers(DEFAULT_MARKERS),
+          autoTags: new AutoTags({}),
         }),
       );
 

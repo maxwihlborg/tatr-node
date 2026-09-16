@@ -2,6 +2,7 @@
 title: Auto tag new tasks by where they came from
 priority: 45
 tags: cli, config, lsp, mcp
+closed: true
 ---
 
 Which part of the tree you were looking at is the most reliable signal about

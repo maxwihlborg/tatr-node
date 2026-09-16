@@ -42,7 +42,7 @@ local function run(opts, cb)
 end
 
 ---@class TatrContext
----@field config { taskDir: string, order: string[], markers: table<string, string[]> }
+---@field config { taskDir: string, order: string[], markers: table<string, string[]>, autoTags: table<string, string[]> }
 ---@field root string absolute path of the task dir
 
 --- `tatr config`: the config of the enclosing repo, defaults filled in.
@@ -90,7 +90,9 @@ function M.mint(opts, cb)
 end
 
 --- `tatr new <title> -f filename`: create a task, answer with its path.
----@param opts { cmd: string[], title: string[], id?: string, tags?: string[] }
+--- `files` are what the task came out of, which the repo's `autoTags` may add
+--- tags of its own for.
+---@param opts { cmd: string[], title: string[], id?: string, tags?: string[], files?: string[] }
 ---@param cb fun(file: string?, err: string?)
 function M.new(opts, cb)
   local args = { "new", "-f", "filename" }
@@ -99,6 +101,9 @@ function M.new(opts, cb)
   end
   for _, tag in ipairs(opts.tags or {}) do
     vim.list_extend(args, { "-t", tag })
+  end
+  for _, file in ipairs(opts.files or {}) do
+    vim.list_extend(args, { "--file", file })
   end
   vim.list_extend(args, opts.title)
 

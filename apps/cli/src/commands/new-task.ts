@@ -44,6 +44,10 @@ export const newTask = pipe(
     fromStdin: Flag.boolean("stdin").pipe(
       Flag.withDescription("Read the body from stdin"),
     ),
+    files: Flag.atLeast(Flag.string("file"), 1).pipe(
+      Flag.withDescription("A file the task came out of, for autoTags, repeatable"),
+      Flag.optional,
+    ),
     format: Flag.choice("format", ["filename", "id"]).pipe(
       Flag.withAlias("f"),
       Flag.withDescription("What to print for the created task"),
@@ -56,7 +60,17 @@ export const newTask = pipe(
   }),
   Command.withDescription("Create a task in the repo"),
   Command.withHandler(
-    Effect.fnUntraced(function* ({ id, title, tags, priority, body, fromStdin, format, open }) {
+    Effect.fnUntraced(function* ({
+      id,
+      title,
+      tags,
+      priority,
+      body,
+      fromStdin,
+      format,
+      open,
+      files,
+    }) {
       const app = yield* AppService;
       const config = yield* ConfigService;
       const editor = yield* Editor;
@@ -77,7 +91,7 @@ export const newTask = pipe(
         yield* Effect.catch(Effect.fromOption(id), () => mint.nextId),
         {
           title,
-          tags,
+          tags: app.taggedFor(context, Option.getOrElse(files, () => []), tags),
           priority,
           body: fromStdin ? Option.orElse(yield* readStdin, () => body) : body,
         },

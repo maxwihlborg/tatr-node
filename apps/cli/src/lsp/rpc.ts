@@ -463,7 +463,11 @@ export const LanguageServerRpcHandlers = LanguageServerRpcGroup.toLayer(
             taskFile,
             yield* app.formatTask({
               title: marker.value.title.length > 0 ? marker.value.title : id,
-              tags: Option.liftPredicate(marker.value.tags, Array.isReadonlyArrayNonEmpty),
+              tags: app.taggedFor(
+                context,
+                [file],
+                Option.liftPredicate(marker.value.tags, Array.isReadonlyArrayNonEmpty),
+              ),
               priority: Option.none(),
               body: Option.none(),
             }),
