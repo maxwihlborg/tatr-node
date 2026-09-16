@@ -11,6 +11,9 @@ permissions:
   contents: read
   id-token: write
 
+env:
+  TURBO_TELEMETRY_DISABLED: 1
+
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -19,11 +22,14 @@ jobs:
 
       - uses: pnpm/action-setup@v6
 
+      # No `registry-url`: it writes an .npmrc holding a `${NODE_AUTH_TOKEN}`
+      # placeholder for the token flow, which trusted publishing never fills in,
+      # so every tool reading that config warns about it. npmjs.org is the
+      # default registry anyway.
       - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: pnpm
-          registry-url: https://registry.npmjs.org
 
       - run: pnpm install --frozen-lockfile
 
