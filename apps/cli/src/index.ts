@@ -8,6 +8,7 @@ import { mintId } from "./commands/mint-id.js";
 import { newTask } from "./commands/new-task.js";
 import { openTask } from "./commands/open-task.js";
 import { pruneTasks } from "./commands/prune-tasks.js";
+import { removeTask } from "./commands/remove-task.js";
 import { showConfig } from "./commands/show-config.js";
 import { showTask } from "./commands/show-task.js";
 import { lspStart } from "./commands/start-lsp.js";
@@ -26,6 +27,7 @@ const cli = pipe(
     newTask,
     openTask,
     pruneTasks,
+    removeTask,
     showConfig,
     showTask,
     tagTasks,

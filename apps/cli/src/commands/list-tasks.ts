@@ -33,6 +33,10 @@ export const listTasks = pipe(
       Flag.withDescription("Which tasks to list, by their 'closed' front matter"),
       Flag.withDefault("open"),
     ),
+    all: Flag.boolean("all").pipe(
+      Flag.withAlias("a"),
+      Flag.withDescription("Closed tasks too, the same as --status all"),
+    ),
     sort: Flag.boolean("sort").pipe(Flag.withDefault(true)),
     order: Flag.atLeast(Flag.string("order"), 1).pipe(
       Flag.withAlias("o"),
@@ -42,13 +46,22 @@ export const listTasks = pipe(
   }),
   Command.withDescription("List tasks in the repo"),
   Command.withHandler(
-    Effect.fnUntraced(function* ({ query, sort, order: orderFlag, format, status, interactive }) {
+    Effect.fnUntraced(function* ({
+      query,
+      sort,
+      order: orderFlag,
+      format,
+      status: statusFlag,
+      all,
+      interactive,
+    }) {
       const printer = yield* Printer;
       const stdio = yield* Stdio;
       const config = yield* ConfigService;
       const app = yield* AppService;
       const fzf = yield* Fzf;
 
+      const status = all ? "all" : statusFlag;
       const { config: cfg, taskDir } = yield* config.getContext;
 
       const order = pipe(
