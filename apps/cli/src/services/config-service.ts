@@ -71,7 +71,7 @@ export class ConfigError extends Data.TaggedError("ConfigError")<{
 export class TatrConfig extends Schema.Opaque<TatrConfig>()(
   Schema.Struct({
     taskDir: Schema.String,
-    formatter: Schema.OptionFromOptionalKey(Schema.Literals(["oxfmt", "prettier"])),
+    formatter: Schema.OptionFromOptionalKey(Schema.Literals(["oxfmt", "prettier", "dprint"])),
     order: fromCommaSeparated(Schema.Trim).pipe(
       Schema.withDecodingDefault(Effect.succeed(DEFAULT_ORDER)),
     ),

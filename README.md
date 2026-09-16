@@ -227,11 +227,10 @@ MCP `create_task`. The LSP code action gets it free from the buffer.
 
 `formatter` runs over a task on its way to disk, on every write — `new`, `tag`,
 `untag`, `close`, the MCP write tools, and the LSP code action alike. It takes
-`oxfmt` or `prettier`, and either way the task comes out formatted the way its
-own repo formats markdown: both walk up from the task file for their config,
-`.oxfmtrc.json` or `.prettierrc`. oxfmt goes through its cli rather than its js
-api, which resolves no config; prettier's `resolveConfig` does that itself, so
-it runs in process.
+`oxfmt`, `prettier` or `dprint`, and whichever it is the task comes out
+formatted the way its own repo formats markdown, off that repo's own config.
+prettier resolves that itself and runs in process; the other two resolve it only
+from their cli, so those are a subprocess over stdin.
 
 Whichever it is, the package is resolved from the repo the config belongs to, so
 the version that formats a task is the one that repo installed. Naming a

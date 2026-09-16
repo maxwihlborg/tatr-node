@@ -23,8 +23,18 @@ export class Formatter extends Context.Service<Formatter>()("@tatr/cli/Formatter
     }
 
     function oxfmtCli(context: TatrContext) {
-      return Effect.map(requireFrom(context), (require) =>
-        path.join(path.dirname(require.resolve("oxfmt")), "cli.js"),
+      return Effect.flatMap(requireFrom(context), (require) =>
+        Effect.try(() => path.join(path.dirname(require.resolve("oxfmt")), "cli.js")),
+      );
+    }
+
+    /** Through `package.json`: the dprint package declares no `main` and no
+     * `exports`, only a `bin`, so resolving it by name throws. */
+    function dprintCli(context: TatrContext) {
+      return Effect.flatMap(requireFrom(context), (require) =>
+        Effect.try(() =>
+          path.join(path.dirname(require.resolve("dprint/package.json")), "bin.cjs"),
+        ),
       );
     }
 
@@ -35,22 +45,24 @@ export class Formatter extends Context.Service<Formatter>()("@tatr/cli/Formatter
     }
 
     /**
-     * Through the cli rather than the `oxfmt` api: only the cli resolves
-     * `.oxfmtrc.json`, and it resolves it by walking up from the file it is
-     * told about, so a task is formatted the way its own repo formats tasks.
+     * Through the cli rather than the js api: only the cli resolves the repo's
+     * own config, and it resolves it by walking up from the file it is told
+     * about, so a task is formatted the way its own repo formats tasks.
      */
-    const runOxfmt = Effect.fnUntraced(function* (
+    const runCli = Effect.fnUntraced(function* (
       context: TatrContext,
-      file: string,
+      name: string,
+      script: string,
+      args: ReadonlyArray<string>,
+      cwd: string,
       text: string,
     ) {
-      const cli = yield* oxfmtCli(context);
-
       const handle = yield* spawner.spawn(
-        ChildProcess.make(process.execPath, [cli, "--stdin-filepath", file], {
+        ChildProcess.make(process.execPath, [script, ...args], {
           stdin: Stream.make(new TextEncoder().encode(text)),
           stdout: "pipe",
           stderr: "pipe",
+          cwd,
         }),
       );
 
@@ -61,7 +73,7 @@ export class Formatter extends Context.Service<Formatter>()("@tatr/cli/Formatter
 
       if (exitCode !== 0) {
         const stderr = yield* Stream.mkString(Stream.decodeText(handle.stderr));
-        return yield* invalid(context, `oxfmt exited ${exitCode}\n\n${stderr.trim()}`);
+        return yield* invalid(context, `${name} exited ${exitCode}\n\n${stderr.trim()}`);
       }
 
       return formatted;
@@ -89,13 +101,33 @@ export class Formatter extends Context.Service<Formatter>()("@tatr/cli/Formatter
 
     function run(
       context: TatrContext,
-      formatter: "oxfmt" | "prettier",
+      formatter: "oxfmt" | "prettier" | "dprint",
       file: string,
       text: string,
     ) {
       switch (formatter) {
         case "oxfmt": {
-          return Effect.scoped(runOxfmt(context, file, text));
+          return Effect.scoped(
+            Effect.flatMap(oxfmtCli(context), (cli) =>
+              runCli(context, formatter, cli, ["--stdin-filepath", file], path.dirname(file), text),
+            ),
+          );
+        }
+        case "dprint": {
+          // the name, not the path: a path is canonicalized against disk, and
+          // the task has not been written yet
+          return Effect.scoped(
+            Effect.flatMap(dprintCli(context), (cli) =>
+              runCli(
+                context,
+                formatter,
+                cli,
+                ["fmt", "--stdin", path.basename(file)],
+                path.dirname(file),
+                text,
+              ),
+            ),
+          );
         }
         case "prettier": {
           return runPrettier(context, file, text);
