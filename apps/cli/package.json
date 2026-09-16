@@ -20,9 +20,12 @@
   ],
   "license": "MIT",
   "author": "Max Wihlborg",
-  "repository": "github:maxwihlborg/tatr-node",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/maxwihlborg/tatr-node.git"
+  },
   "bin": {
-    "tatr": "./bin/tatr.js"
+    "tatr": "bin/tatr.js"
   },
   "files": [
     "bin",

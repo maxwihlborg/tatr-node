@@ -48,8 +48,8 @@ jobs:
       # Staged, not direct: this puts the build in a queue that goes nowhere
       # until `npm stage approve <id>` is run with 2FA, so a tag pushed by
       # someone who should not be releasing cannot ship on its own.
+      # The stage id to approve with is in this step's own output. Reading it
+      # back with `npm stage list` is not possible here: the OIDC credential is
+      # scoped to the action it was minted for, so a registry read is a 401.
       - run: npm stage publish --provenance --access public
-        working-directory: apps/cli
-
-      - run: npm stage list tatr-node
         working-directory: apps/cli
