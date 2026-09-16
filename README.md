@@ -226,14 +226,17 @@ always explicit: `tatr new --file <path>`, repeatable, and the same list on the
 MCP `create_task`. The LSP code action gets it free from the buffer.
 
 `formatter` runs over a task on its way to disk, on every write — `new`, `tag`,
-`untag`, `close`, the MCP write tools, and the LSP code action alike. Only
-`oxfmt` is implemented, and it goes through oxfmt's cli rather than its js api,
-which has no config resolution: the cli walks up from the task file for
-`.oxfmtrc.json`, so a task comes out formatted the way its own repo formats
-markdown. The oxfmt package is resolved from the repo the config belongs to, so
-the version that formats a task is the one that repo installed. Setting the key
-in a repo that has no oxfmt is a config error, and the write is refused rather
-than landing unformatted.
+`untag`, `close`, the MCP write tools, and the LSP code action alike. It takes
+`oxfmt` or `prettier`, and either way the task comes out formatted the way its
+own repo formats markdown: both walk up from the task file for their config,
+`.oxfmtrc.json` or `.prettierrc`. oxfmt goes through its cli rather than its js
+api, which resolves no config; prettier's `resolveConfig` does that itself, so
+it runs in process.
+
+Whichever it is, the package is resolved from the repo the config belongs to, so
+the version that formats a task is the one that repo installed. Naming a
+formatter the repo does not have is a config error, and the write is refused
+rather than landing unformatted.
 
 `tatr config` prints the whole config as json with the defaults filled in, which
 is how the neovim plugin reads it. `root` is the task dir resolved against the
