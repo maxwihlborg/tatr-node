@@ -1,0 +1,48 @@
+name: publish
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+# id-token is what mints the OIDC token npm exchanges for a short lived
+# credential, and what signs the provenance attestation. No NPM_TOKEN.
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm exec turbo run lint build
+      - run: pnpm exec vitest --run
+
+      # The tag is what says which version is being released, so it has to be
+      # the one in the manifest rather than whatever was last committed.
+      - name: Check the tag against the manifest
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          tagged="${GITHUB_REF_NAME#v}"
+          packaged="$(node -p "require('./apps/cli/package.json').version")"
+          if [ "$tagged" != "$packaged" ]; then
+            echo "tag $GITHUB_REF_NAME does not match package version $packaged" >&2
+            exit 1
+          fi
+
+      # Trusted publishing is npm's, not pnpm's: pnpm can attach provenance but
+      # has no OIDC exchange, so the publish itself goes through npm.
+      - run: npm publish --provenance --access public
+        working-directory: apps/cli
