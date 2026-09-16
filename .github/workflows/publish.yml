@@ -44,5 +44,12 @@ jobs:
 
       # Trusted publishing is npm's, not pnpm's: pnpm can attach provenance but
       # has no OIDC exchange, so the publish itself goes through npm.
-      - run: npm publish --provenance --access public
+      #
+      # Staged, not direct: this puts the build in a queue that goes nowhere
+      # until `npm stage approve <id>` is run with 2FA, so a tag pushed by
+      # someone who should not be releasing cannot ship on its own.
+      - run: npm stage publish --provenance --access public
+        working-directory: apps/cli
+
+      - run: npm stage list tatr-node
         working-directory: apps/cli
