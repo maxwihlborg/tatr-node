@@ -5,15 +5,17 @@ import { Prompt } from "effect/unstable/cli";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 
 /** What `npm stage list --json` answers with, per npm's own `logStageItem`. */
-const Staged = Schema.Struct({
-  id: Schema.String,
-  packageName: Schema.String,
-  version: Schema.String,
-  tag: Schema.String,
-  status: Schema.optionalKey(Schema.String),
-});
-
-const decodeStaged = Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Array(Staged)));
+class StageItem extends Schema.Opaque<StageItem>()(
+  Schema.Struct({
+    id: Schema.String,
+    packageName: Schema.String,
+    version: Schema.String,
+    tag: Schema.String,
+    status: Schema.optionalKey(Schema.String),
+  }),
+) {
+  static decodeJsonArray = Schema.decodeEffect(Schema.fromJsonString(Schema.Array(this)));
+}
 
 const program = Effect.gen(function* () {
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
@@ -23,8 +25,12 @@ const program = Effect.gen(function* () {
   // every call is made from the package being published.
   const cwd = path.dirname(import.meta.dirname);
 
-  const staged = yield* decodeStaged(
-    yield* spawner.string(ChildProcess.make("npm", ["stage", "list", "--json"], { cwd })),
+  const staged = yield* StageItem.decodeJsonArray(
+    yield* spawner.string(
+      ChildProcess.make("npm", ["stage", "list", "--json"], {
+        cwd,
+      }),
+    ),
   );
 
   if (staged.length === 0) {
@@ -67,4 +73,4 @@ const program = Effect.gen(function* () {
   }
 });
 
-NodeRuntime.runMain(program.pipe(Effect.provide(NodeServices.layer)));
+NodeRuntime.runMain(Effect.provide(program, NodeServices.layer));
