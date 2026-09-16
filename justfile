@@ -10,6 +10,9 @@ alias pr := pull-request
 install:
     pnpm install
 
+@approve:
+    ./apps/cli/scripts/npm-approve.ts
+
 build:
     pnpm exec turbo run build
 

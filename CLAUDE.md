@@ -24,7 +24,7 @@ the package, so there is no reason to `cd`:
 ```sh
 pnpm exec vitest --run -t "mints ids"            # one test by name
 pnpm exec turbo run lint                         # oxlint, fails on unused imports
-pnpm --filter tatr-node exec tsc --noEmit -p .   # typecheck alone, faster than build
+pnpm --filter tatr-node exec tsc -b              # typecheck alone, faster than build
 ```
 
 Stay in the working directory you were given. Paths in the conversation are

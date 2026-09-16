@@ -67,6 +67,13 @@ export class TaskError extends Data.TaggedError("TaskError")<{
   readonly cause: unknown;
 }> {}
 
+export interface TaskFields {
+  title: string;
+  tags: Option.Option<ReadonlyArray<string>>;
+  priority: Option.Option<number>;
+  body: Option.Option<string>;
+}
+
 /** What a task reads as when its front matter does not: a row that sorts above
  * everything else and says what is wrong with it. */
 function broken(message: string) {
@@ -343,13 +350,6 @@ export class AppService extends Context.Service<AppService>()("@tatr/cli/AppServ
         listFilesIn(taskDir),
         Stream.filterMapEffect((file) => Effect.result(readTask(taskDir, file))),
       );
-    }
-
-    interface TaskFields {
-      title: string;
-      tags: Option.Option<ReadonlyArray<string>>;
-      priority: Option.Option<number>;
-      body: Option.Option<string>;
     }
 
     function formatTask(task: TaskFields) {
