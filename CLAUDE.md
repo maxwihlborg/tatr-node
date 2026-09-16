@@ -108,13 +108,22 @@ epoch seconds plus 4 random bytes, so sorting ids lexicographically sorts by
 creation time. Decoding is lenient about case and the `O`/`I`/`L` aliases.
 
 Because the time comes first, tasks minted around each other share their leading
-characters, so `show` and `close` take any **suffix** long enough to name one
+characters, so anything taking an id takes any **suffix** long enough to name one
 task — `tatr show pg` — and `ls` greys the shared head of each id to show where
 that suffix starts (`lib/abbrev.ts`, resolved by `AppService.resolveTaskIn`).
 The uniqueness set is every file in the task dir, closed ones included, but it
 still shifts as tasks arrive: abbreviations are for typing, never for writing
 down. Commit subjects and the `[ID]` markers the LSP writes into source comments
-stay full ids, and so does every MCP tool, whose ids come from `list_tasks`.
+stay full ids.
+
+**An ambiguous id over MCP is a question, not a failure.** `show_task`,
+`update_task`, `append_task` and `close_task` resolve the same way the cli does,
+and on more than one match ask through `McpServer.elicit`; declining, or a client
+that cannot be asked at all, gets the candidates and their titles in the error.
+Asking needs `McpServerClient`, which no handler layer can hold because it is a
+request back out to whoever is driving the server — each of those four carries
+`Tool.addDependency(McpSchema.McpServerClient)` so `McpServer.toolkit` supplies
+it per call. Every tool answers with the canonical id whatever was passed in.
 
 ## Conventions
 

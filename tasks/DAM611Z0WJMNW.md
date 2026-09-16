@@ -2,6 +2,7 @@
 title: Mcp tools for changing a task
 priority: 55
 tags: mcp, cli
+closed: true
 ---
 
 The toolkit is `list_tasks`, `show_task`, `create_task`, `close_task`. Once a

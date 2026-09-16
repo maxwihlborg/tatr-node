@@ -391,19 +391,35 @@ export class AppService extends Context.Service<AppService>()("@tatr/cli/AppServ
       return yield* readTask(context.taskDir, filePath);
     });
 
-    const updateTaskInfo = Effect.fnUntraced(function* (
+    /**
+     * A task rewritten as a whole. The body is handed over exactly as
+     * `parseFullTask` read it — leading newline and all — so an update that
+     * leaves it alone writes the file back byte for byte.
+     */
+    const updateTask = Effect.fnUntraced(function* (
       context: TatrContext,
       file: string,
-      update: (info: TaskInfo) => TaskInfo,
+      update: (task: TaskWithBody) => { info: TaskInfo; body: string },
     ) {
-      const task = yield* parseFullTask(file);
+      const next = update(yield* parseFullTask(file));
 
-      yield* TaskInfo.encodeYaml(update(task.info)).pipe(
-        Effect.map((matter) => ["---", matter.trimEnd(), "---", task.body].join("\n")),
+      yield* TaskInfo.encodeYaml(next.info).pipe(
+        Effect.map((matter) => ["---", matter.trimEnd(), "---", next.body].join("\n")),
         Effect.flatMap((text) => formatter.format(context, file, text)),
         Effect.flatMap((text) => fs.writeFileString(file, text)),
       );
     });
+
+    function updateTaskInfo(
+      context: TatrContext,
+      file: string,
+      update: (info: TaskInfo) => TaskInfo,
+    ) {
+      return updateTask(context, file, (task) => ({
+        info: update(task.info),
+        body: task.body,
+      }));
+    }
 
     return {
       formatTask,
@@ -417,6 +433,7 @@ export class AppService extends Context.Service<AppService>()("@tatr/cli/AppServ
       resolveTaskIn,
       taggedFor,
       saveTaskIn,
+      updateTask,
       updateTaskInfo,
     };
   }),

@@ -1,8 +1,9 @@
-import { Array, Effect, FileSystem, Option, Order, Schema, Stream, Struct } from "effect";
+import { Array, Effect, Option, Order, Schema, Stream, Struct } from "effect";
 import type { NonEmptyReadonlyArray } from "effect/Array";
-import { Tool, Toolkit } from "effect/unstable/ai";
+import { McpSchema, McpServer, Tool, Toolkit } from "effect/unstable/ai";
 import { runCollectSorted } from "../lib/functions.js";
-import { AppService, ConfigService, Expr, Mint, Query } from "../services/index.js";
+import type { TaskInfo, TaskWithBody } from "../schema.js";
+import { AppService, ConfigService, Expr, Mint, Query, type TatrContext } from "../services/index.js";
 import { TaskDetail, TaskSummary, TaskToolError } from "./schema.js";
 
 /**
@@ -17,7 +18,10 @@ const Cwd = Schema.String.annotate({
 });
 
 const Id = Schema.String.annotate({
-  description: "The id of the task, which is the name of its file without the extension",
+  description:
+    "The id of the task, which is the name of its file without the extension. " +
+    "Any suffix long enough to name one task works too, and one that names " +
+    "several asks the operator which was meant",
 });
 
 const Status = Schema.Literals(["open", "closed", "all"]).pipe(
@@ -141,7 +145,7 @@ export const ShowTask = Tool.make("show_task", {
   }),
   success: TaskDetail,
   failure: TaskToolError,
-});
+}).addDependency(McpSchema.McpServerClient);
 
 export const CreateTask = Tool.make("create_task", {
   description:
@@ -185,6 +189,58 @@ export const CreateTask = Tool.make("create_task", {
   failure: TaskToolError,
 });
 
+export const UpdateTask = Tool.make("update_task", {
+  description:
+    "Change a task of a tatr repo that already exists. Every field but the id is " +
+    "optional and an absent one is left as it is. 'body' replaces the whole body, " +
+    "so use 'append_task' to add to one rather than re-sending what is not changing. " +
+    "Closing a task is 'close_task', not this.",
+  parameters: Schema.Struct({
+    cwd: Schema.OptionFromOptionalKey(Cwd),
+    id: Id,
+    title: Schema.String.pipe(
+      Schema.optionalKey,
+      Schema.annotate({ description: "The one line the task is known by" }),
+    ),
+    priority: Schema.Int.pipe(
+      Schema.optionalKey,
+      Schema.annotate({ description: "Priority of the task, a higher one is more important" }),
+    ),
+    tags: Schema.Array(Schema.String).pipe(
+      Schema.optionalKey,
+      Schema.annotate({
+        description:
+          "Tags of the task, replacing the ones it carries rather than adding to them. " +
+          "Read the current ones out of 'show_task' first",
+      }),
+    ),
+    body: Schema.String.pipe(
+      Schema.optionalKey,
+      Schema.annotate({
+        description: "Markdown body, replacing the whole of the current one",
+      }),
+    ),
+  }),
+  success: TaskSummary,
+  failure: TaskToolError,
+}).addDependency(McpSchema.McpServerClient);
+
+export const AppendTask = Tool.make("append_task", {
+  description:
+    "Add to the end of a task's body, which is what writing to a task usually is: " +
+    "a measurement, what landed, a correction. Leaves everything above it untouched, " +
+    "so nothing already written has to be re-sent.",
+  parameters: Schema.Struct({
+    cwd: Schema.OptionFromOptionalKey(Cwd),
+    id: Id,
+    body: Schema.String.annotate({
+      description: "Markdown to write under what the task already says",
+    }),
+  }),
+  success: TaskSummary,
+  failure: TaskToolError,
+}).addDependency(McpSchema.McpServerClient);
+
 export const CloseTask = Tool.make("close_task", {
   description:
     "Close a task of a tatr repo by its id, which sets 'closed: true' in its front matter. " +
@@ -195,9 +251,16 @@ export const CloseTask = Tool.make("close_task", {
   }),
   success: TaskSummary,
   failure: TaskToolError,
-});
+}).addDependency(McpSchema.McpServerClient);
 
-export const TaskToolkit = Toolkit.make(ListTasks, ShowTask, CreateTask, CloseTask);
+export const TaskToolkit = Toolkit.make(
+  ListTasks,
+  ShowTask,
+  CreateTask,
+  UpdateTask,
+  AppendTask,
+  CloseTask,
+);
 
 function toToolError(err: {
   readonly _tag: string;
@@ -214,20 +277,75 @@ export const TaskHandlers = TaskToolkit.toLayer(
     const config = yield* ConfigService;
     const mint = yield* Mint;
     const app = yield* AppService;
-    const fs = yield* FileSystem.FileSystem;
 
     function contextOf(root: Option.Option<string>) {
       return config.getContextFromRootUri(Option.getOrElse(root, () => process.cwd()));
-    }
-
-    function taskDirOf(root: Option.Option<string>) {
-      return Effect.map(contextOf(root), (context) => context.taskDir);
     }
 
     /** What `rg` searches for references is the repo, not the task dir. */
     function rootDirOf(root: Option.Option<string>) {
       return config.getRootDirFromRootUri(Option.getOrElse(root, () => process.cwd()));
     }
+
+    /**
+     * An id as the caller spelled it, which may be any suffix long enough to
+     * name one task. Several matches are a question for whoever is driving the
+     * server rather than a guess, and a client that cannot be asked gets the
+     * candidates in the failure instead.
+     */
+    const resolveTask = Effect.fnUntraced(function* (context: TatrContext, id: string) {
+      return yield* app.resolveTaskIn(context.taskDir, id).pipe(
+        Effect.catchTag("TaskIdError", (err) => {
+          if (err.candidates.length === 0) {
+            return new TaskToolError({ message: `No task with id ${id} found` });
+          }
+
+          const listed = err.candidates.map((n) => `${n.id}: ${n.title}`);
+
+          return McpServer.elicit({
+            message: [`${id} names more than one task, which was meant?`, ...listed].join("\n"),
+            schema: Schema.Struct({
+              id: Schema.Literals(err.candidates.map((n) => n.id)).annotate({
+                title: "Task",
+                description: `Which task ${id} was meant to name`,
+              }),
+            }),
+          }).pipe(
+            Effect.map((chosen) => ({
+              id: chosen.id,
+              file: config.taskFilePathIn(context.taskDir, chosen.id),
+            })),
+            Effect.catchTag(
+              "ElicitationDeclined",
+              () => new TaskToolError({ message: [`${id} is ambiguous:`, ...listed].join("\n") }),
+            ),
+          );
+        }),
+      );
+    });
+
+    /**
+     * `parseFullTask` hands back a body that starts with the blank line after
+     * the closing `---`, so anything replacing one is spelled the same way or
+     * the file comes out unlike what `create_task` writes.
+     */
+    function bodyOf(text: string) {
+      return `\n${text.trim()}\n`;
+    }
+
+    /** Rewrite a task that has to already exist, and answer with what it became. */
+    const writeTask = Effect.fnUntraced(function* (
+      cwd: Option.Option<string>,
+      id: string,
+      update: (task: TaskWithBody) => { info: TaskInfo; body: string },
+    ) {
+      const context = yield* contextOf(cwd);
+      const { file } = yield* resolveTask(context, id);
+
+      yield* app.updateTask(context, file, update);
+
+      return TaskSummary.of(yield* app.readTask(context.taskDir, file));
+    });
 
     return TaskToolkit.of({
       list_tasks: Effect.fnUntraced(
@@ -255,16 +373,9 @@ export const TaskHandlers = TaskToolkit.toLayer(
 
       show_task: Effect.fnUntraced(
         function* (params) {
-          const taskDir = yield* taskDirOf(params.cwd);
-          const file = config.taskFilePathIn(taskDir, params.id);
+          const { id, file } = yield* resolveTask(yield* contextOf(params.cwd), params.id);
 
-          if (!(yield* fs.exists(file))) {
-            return yield* new TaskToolError({
-              message: `No task with id ${params.id} found`,
-            });
-          }
-
-          const references = yield* app.referencesOf(yield* rootDirOf(params.cwd), params.id).pipe(
+          const references = yield* app.referencesOf(yield* rootDirOf(params.cwd), id).pipe(
             Stream.map((match) => match.file),
             runCollectSorted(Order.String),
             Effect.map(Array.dedupe),
@@ -295,16 +406,38 @@ export const TaskHandlers = TaskToolkit.toLayer(
         Effect.catch((err) => Effect.fail(toToolError(err))),
       ),
 
+      update_task: Effect.fnUntraced(
+        function* (params) {
+          return yield* writeTask(params.cwd, params.id, (task) => ({
+            info: {
+              ...task.info,
+              title: params.title ?? task.info.title,
+              priority: params.priority ?? task.info.priority,
+              tags: params.tags ?? task.info.tags,
+            },
+            body: params.body === undefined ? task.body : bodyOf(params.body),
+          }));
+        },
+        Effect.catch((err) => Effect.fail(toToolError(err))),
+      ),
+
+      append_task: Effect.fnUntraced(
+        function* (params) {
+          return yield* writeTask(params.cwd, params.id, (task) => ({
+            info: task.info,
+            body:
+              task.body.trim() === ""
+                ? bodyOf(params.body)
+                : `${task.body.trimEnd()}\n${bodyOf(params.body)}`,
+          }));
+        },
+        Effect.catch((err) => Effect.fail(toToolError(err))),
+      ),
+
       close_task: Effect.fnUntraced(
         function* (params) {
           const context = yield* contextOf(params.cwd);
-          const file = config.taskFilePathIn(context.taskDir, params.id);
-
-          if (!(yield* fs.exists(file))) {
-            return yield* new TaskToolError({
-              message: `No task with id ${params.id} found`,
-            });
-          }
+          const { file } = yield* resolveTask(context, params.id);
 
           const task = yield* app.parseFullTask(file);
 
