@@ -1,9 +1,16 @@
 import { Console, Effect, Layer, Option, pipe, Stdio, Stream, String } from "effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
-import { AppService, ConfigService, FileUtils, Formatter, Mint } from "../services/index.js";
+import {
+  AppService,
+  ConfigService,
+  Editor,
+  FileUtils,
+  Formatter,
+  Mint,
+} from "../services/index.js";
 import { unreachable } from "../lib/functions.js";
 
-const NewLayer = Layer.mergeAll(AppService.layer, Mint.layer).pipe(
+const NewLayer = Layer.mergeAll(AppService.layer, Editor.layer, Mint.layer).pipe(
   Layer.provide(Formatter.layer),
   Layer.provideMerge(ConfigService.layer),
   Layer.provide(FileUtils.layer),
@@ -42,12 +49,17 @@ export const newTask = pipe(
       Flag.withDescription("What to print for the created task"),
       Flag.withDefault("filename"),
     ),
+    open: Flag.boolean("open").pipe(
+      Flag.withAlias("o"),
+      Flag.withDescription("Open the task in $VISUAL or $EDITOR once it is written"),
+    ),
   }),
   Command.withDescription("Create a task in the repo"),
   Command.withHandler(
-    Effect.fnUntraced(function* ({ id, title, tags, priority, body, fromStdin, format }) {
+    Effect.fnUntraced(function* ({ id, title, tags, priority, body, fromStdin, format, open }) {
       const app = yield* AppService;
       const config = yield* ConfigService;
+      const editor = yield* Editor;
       const mint = yield* Mint;
       const stdio = yield* Stdio.Stdio;
 
@@ -70,6 +82,12 @@ export const newTask = pipe(
           body: fromStdin ? Option.orElse(yield* readStdin, () => body) : body,
         },
       );
+
+      // After the write and the formatter, and before the line naming it, so
+      // what an editor leaves on the screen is not the last thing printed
+      if (open) {
+        yield* editor.open(task.file);
+      }
 
       switch (format) {
         case "filename": {

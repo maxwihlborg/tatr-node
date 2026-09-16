@@ -6,6 +6,7 @@ import { initConfig } from "./commands/init-config.js";
 import { listTasks } from "./commands/list-tasks.js";
 import { mintId } from "./commands/mint-id.js";
 import { newTask } from "./commands/new-task.js";
+import { openTask } from "./commands/open-task.js";
 import { pruneTasks } from "./commands/prune-tasks.js";
 import { showConfig } from "./commands/show-config.js";
 import { showTask } from "./commands/show-task.js";
@@ -23,6 +24,7 @@ const cli = pipe(
     mcpStart,
     mintId,
     newTask,
+    openTask,
     pruneTasks,
     showConfig,
     showTask,
@@ -53,6 +55,7 @@ const main = pipe(
       case "TaskAlreadyExistError": {
         return abort(`A task with id ${err.id} already exists`);
       }
+      case "EditorError":
       case "TaskIdError": {
         return abort(err.message);
       }
