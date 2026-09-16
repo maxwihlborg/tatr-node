@@ -10,9 +10,8 @@ const CloseLayer = AppService.layer.pipe(
 
 export const closeTask = pipe(
   Command.make("close", {
-    id: pipe(
-      Argument.string("id"), //
-      Argument.withDescription("Id of the task"),
+    id: Argument.string("id").pipe(
+      Argument.withDescription("Id of the task"), //
     ),
   }),
   Command.withDescription("Mark a task as closed"),

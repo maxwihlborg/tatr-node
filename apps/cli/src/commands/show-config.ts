@@ -7,7 +7,6 @@ const ConfigLayer = ConfigService.layer.pipe(Layer.provide(FileUtils.layer));
 class ConfigOutput extends Schema.Opaque<ConfigOutput>()(
   Schema.Struct({
     config: TatrConfig,
-    /** Absolute, so a caller can open a task without resolving anything. */
     root: Schema.String,
   }),
 ) {

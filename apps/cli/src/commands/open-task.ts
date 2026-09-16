@@ -10,9 +10,8 @@ const OpenLayer = Layer.mergeAll(AppService.layer, Editor.layer).pipe(
 
 export const openTask = pipe(
   Command.make("open", {
-    id: pipe(
-      Argument.string("id"), //
-      Argument.withDescription("Id of the task"),
+    id: Argument.string("id").pipe(
+      Argument.withDescription("Id of the task"), //
     ),
   }),
   Command.withDescription("Open a task in $VISUAL or $EDITOR"),

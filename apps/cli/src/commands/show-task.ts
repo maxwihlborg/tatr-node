@@ -11,12 +11,10 @@ const ShowLayer = Layer.mergeAll(AppService.layer, Printer.layer).pipe(
 
 export const showTask = pipe(
   Command.make("show", {
-    id: pipe(
-      Argument.string("id"), //
-      Argument.withDescription("Id of the task"),
+    id: Argument.string("id").pipe(
+      Argument.withDescription("Id of the task"), //
     ),
-    format: pipe(
-      Flag.choice("format", ["body", "json", "agent", "filepath"]),
+    format: Flag.choice("format", ["body", "json", "agent", "filepath"]).pipe(
       Flag.withAlias("f"),
       Flag.withDescription("Output format"),
       Flag.withDefault("body"),

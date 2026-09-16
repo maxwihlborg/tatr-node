@@ -15,6 +15,7 @@ build:
 
 pull-request:
     pnpm exec turbo run format lint build
+    pnpm exec vitest --run
 
 format-tasks:
     pnpm exec oxfmt ./tasks/**/*.{md}

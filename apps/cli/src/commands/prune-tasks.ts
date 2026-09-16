@@ -28,8 +28,6 @@ export const pruneTasks = pipe(
       const app = yield* AppService;
       const fs = yield* FileSystem.FileSystem;
 
-      // Neither is every open task, which is not a thing to unlink because an
-      // argument was forgotten
       if (Option.isNone(query) && Option.isNone(status)) {
         process.exitCode = 1;
         return yield* Console.log("Pass a query or a status, prune unlinks what they match");

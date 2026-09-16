@@ -38,16 +38,10 @@ interface TagMoveCommandParams {
   readonly status: Option.Option<"open" | "closed" | "all">;
 }
 
-/**
- * Bulk writes over whatever the query matches — the same query `ls` takes, so
- * running that first shows exactly what is about to be rewritten.
- */
 const rewriteTags = Effect.fnUntraced(function* (params: TagMoveCommandParams, rewrite: Rewrite) {
   const config = yield* ConfigService;
   const app = yield* AppService;
 
-  // Neither is every open task, which is not a thing to rewrite because an
-  // argument was forgotten
   if (Option.isNone(params.query) && Option.isNone(params.status)) {
     process.exitCode = 1;
     return yield* Console.log("Pass a query or a status, tags move on what they match");

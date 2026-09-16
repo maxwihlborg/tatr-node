@@ -11,7 +11,7 @@ export const initConfig = pipe(
       Flag.withDefault("./tasks"),
     ),
     force: Flag.boolean("force").pipe(
-      Flag.withDescription(`Overwrite an existing config`),
+      Flag.withDescription(`Overwrite an existing config`), //
     ),
   }),
   Command.withDescription("Create a tatr.config.yaml in the repo"),
