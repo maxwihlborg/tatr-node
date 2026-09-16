@@ -47,25 +47,19 @@ const main = pipe(
   Command.run(cli, { version: __VERSION__ }),
   Effect.catch((err) => {
     switch (err._tag) {
-      case "ConfigError":
       case "CompileError":
-      // writing a task back is an encode, and a task that will not encode is
-      // one the caller has to hear about rather than a defect
-      case "SchemaError": {
+      case "ConfigError":
+      case "EditorError":
+      case "TaskIdError":
+      case "TaskParseError":
+      case "TaskWriteError": {
         return abort(err.message);
       }
       case "TaskAlreadyExistError": {
         return abort(`A task with id ${err.id} already exists`);
       }
-      case "EditorError":
-      case "TaskIdError": {
-        return abort(err.message);
-      }
       case "TaskError": {
         return abort(`Could not read ${err.file}`);
-      }
-      case "TaskParseError": {
-        return abort(err.message);
       }
     }
 

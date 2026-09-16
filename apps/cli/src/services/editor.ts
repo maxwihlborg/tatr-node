@@ -14,8 +14,8 @@ export class EditorError extends Data.TaggedError("EditorError")<{
   }
 }
 
-const editorCommand = Config.nonEmptyString("VISUAL").pipe(
-  Config.orElse(() => Config.nonEmptyString("EDITOR")),
+const editorCommand = Config.NonEmptyString("VISUAL").pipe(
+  Config.orElse(() => Config.NonEmptyString("EDITOR")),
   Config.option,
 );
 

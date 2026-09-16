@@ -41,7 +41,7 @@ const program = Effect.gen(function* () {
     staged.length === 1
       ? staged[0]!
       : yield* Prompt.run(
-          Prompt.select({
+          Prompt.Select({
             message: "Which staged version?",
             choices: staged.map((one) => ({
               title: `${one.packageName}@${one.version}`,
@@ -52,7 +52,7 @@ const program = Effect.gen(function* () {
         );
 
   const otp = yield* Prompt.run(
-    Prompt.text({
+    Prompt.String({
       message: `One time password to approve ${chosen.packageName}@${chosen.version}`,
       validate: (value) =>
         /^\d{6}$/.test(value.trim()) ? Effect.succeed(value.trim()) : Effect.fail("Six digits"),

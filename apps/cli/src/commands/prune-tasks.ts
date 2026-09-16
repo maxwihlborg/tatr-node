@@ -1,5 +1,6 @@
-import { Console, Effect, FileSystem, Layer, Option, Stream, String, pipe } from "effect";
-import { Argument, Command, Flag } from "effect/unstable/cli";
+import { Console, Effect, FileSystem, Layer, Option, Stream, pipe } from "effect";
+import { Command, Flag } from "effect/unstable/cli";
+import { queryArgument, statusFlag } from "../common/flags.js";
 import { AppService, ConfigService, FileUtils, Formatter, Query } from "../services/index.js";
 
 const PruneLayer = AppService.layer.pipe(
@@ -10,18 +11,12 @@ const PruneLayer = AppService.layer.pipe(
 
 export const pruneTasks = pipe(
   Command.make("prune", {
-    query: Argument.variadic(Argument.string("query")).pipe(
-      Argument.withDescription("Query DSL, which tasks to unlink"),
-      Argument.map((q) => Query.normalize(q, " ")),
-      Argument.map(Option.liftPredicate(String.isNonEmpty)),
-    ),
-    status: Flag.choice("status", ["open", "closed", "all"]).pipe(
-      Flag.withAlias("s"),
-      Flag.withDescription("Which tasks to unlink, by their 'closed' front matter"),
-      Flag.optional,
+    query: queryArgument({ description: "Query DSL, which tasks to unlink" }),
+    status: Flag.optional(
+      statusFlag({ description: "Which tasks to unlink, by their 'closed' front matter" }),
     ),
   }),
-  Command.withDescription("Unlink the task files matching a query"),
+  Command.withDescription("Unlink the task files matching a query or a --status, one is required"),
   Command.withHandler(
     Effect.fnUntraced(function* ({ query, status }) {
       const config = yield* ConfigService;

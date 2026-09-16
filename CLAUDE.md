@@ -43,13 +43,21 @@ needs a client driving it, not a pipe of newline-delimited requests.
 
 ## Effect
 
-Everything is [Effect](https://effect.website) v4 beta (`4.0.0-beta.107`, pinned
+Everything is [Effect](https://effect.website) v4 rc (`^4.0.0-rc.115`, pinned
 through the pnpm catalog), including the parts still under `effect/unstable`:
 `cli` for commands and flags, `ai` for the MCP server and toolkits, `rpc` for
 the language server, `process` for spawning fzf. v4 APIs differ from the v3 ones
 in most published examples — read the installed `.d.ts` in
 `node_modules/.pnpm/effect@*/node_modules/effect/src` rather than guessing, and
 prefer `Struct.evolve`, `Option`, and the point-free forms already in use.
+
+The rc capitalised every constructor that names a type, so the beta spellings in
+older examples are all wrong: `Flag.String`, `Flag.Boolean`, `Flag.Int`,
+`Flag.Literals` (was `choice`), `Argument.String`, `Config.NonEmptyString`,
+`Prompt.Select`, `Prompt.String` (was `text`). A `Flag.Boolean` no longer
+defaults to false — omitting it fails unless it is given `Flag.withDefault` or
+made optional. `SchemaError` moved from its own module to `Schema.SchemaError`,
+and `SchemaGetter.transformOrFail` is now `transformEffect`.
 
 Services are `Context.Service` classes with a static `layer`, re-exported from
 `src/services/index.ts`. Each command builds its own layer stack and attaches it

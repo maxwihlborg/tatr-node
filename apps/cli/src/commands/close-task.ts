@@ -1,5 +1,6 @@
 import { Console, Effect, Layer, Struct, pipe } from "effect";
-import { Argument, Command } from "effect/unstable/cli";
+import { Command } from "effect/unstable/cli";
+import { idArgument } from "../common/flags.js";
 import { AppService, ConfigService, FileUtils, Formatter } from "../services";
 
 const CloseLayer = AppService.layer.pipe(
@@ -10,9 +11,7 @@ const CloseLayer = AppService.layer.pipe(
 
 export const closeTask = pipe(
   Command.make("close", {
-    id: Argument.string("id").pipe(
-      Argument.withDescription("Id of the task"), //
-    ),
+    id: idArgument,
   }),
   Command.withDescription("Mark a task as closed"),
   Command.withHandler(

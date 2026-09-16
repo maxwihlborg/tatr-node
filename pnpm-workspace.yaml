@@ -4,6 +4,8 @@ packages:
 allowBuilds:
   esbuild: true
   msgpackr-extract: true
+overrides:
+  "@types/node": catalog:core
 catalogs:
   cli:
     colorette: ^2.0.20
@@ -11,16 +13,33 @@ catalogs:
     fast-glob: ^3.3.3
     yaml: ^2.9.1
   core:
-    "@effect/platform-node": 4.0.0-beta.107
-    "@effect/vitest": 4.0.0-beta.107
+    "@effect/platform-node": ^4.0.0-rc.115
+    "@effect/vitest": ^4.0.0-rc.115
     "@total-typescript/tsconfig": ^1.0.4
-    "@types/node": ^26.4.0
-    effect: 4.0.0-beta.107
-    oxlint: ^1.80.0
-    rolldown: ^1.2.6
+    "@types/node": ^26.6.1
+    effect: ^4.0.0-rc.115
+    oxlint: ^1.83.0
+    rolldown: ^1.2.9
     typescript: ^7.0.2
-    vitest: ^4.1.11
+    vitest: ^5.0.1
   lsp:
     vscode-languageserver-protocol: ^3.18.3
     vscode-languageserver-textdocument: ^1.0.14
     vscode-languageserver-types: ^3.18.3
+minimumReleaseAgeExclude:
+  - '@rolldown/binding-android-arm-eabi@1.2.9'
+  - '@rolldown/binding-android-arm64@1.2.9'
+  - '@rolldown/binding-darwin-arm64@1.2.9'
+  - '@rolldown/binding-darwin-x64@1.2.9'
+  - '@rolldown/binding-freebsd-x64@1.2.9'
+  - '@rolldown/binding-linux-arm-gnueabihf@1.2.9'
+  - '@rolldown/binding-linux-arm64-gnu@1.2.9'
+  - '@rolldown/binding-linux-arm64-musl@1.2.9'
+  - '@rolldown/binding-linux-ppc64-gnu@1.2.9'
+  - '@rolldown/binding-linux-s390x-gnu@1.2.9'
+  - '@rolldown/binding-linux-x64-gnu@1.2.9'
+  - '@rolldown/binding-linux-x64-musl@1.2.9'
+  - '@rolldown/binding-openharmony-arm64@1.2.9'
+  - '@rolldown/binding-win32-arm64-msvc@1.2.9'
+  - '@rolldown/binding-win32-x64-msvc@1.2.9'
+  - rolldown@1.2.9

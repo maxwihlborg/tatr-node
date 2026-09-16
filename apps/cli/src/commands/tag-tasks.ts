@@ -1,7 +1,8 @@
-import { Array, Console, Effect, Layer, Option, Stream, String, pipe } from "effect";
-import { Argument, Command, Flag } from "effect/unstable/cli";
+import { Array, Console, Effect, Layer, Option, Stream, pipe } from "effect";
+import { Command, Flag } from "effect/unstable/cli";
 import type { Task } from "../schema.js";
 import { AppService, ConfigService, FileUtils, Formatter, Query } from "../services/index.js";
+import { queryArgument, statusFlag, tagFlag } from "../common/flags.js";
 
 const TagLayer = AppService.layer.pipe(
   Layer.provide(Formatter.layer),
@@ -9,22 +10,12 @@ const TagLayer = AppService.layer.pipe(
   Layer.provide(FileUtils.layer),
 );
 
-const query = Argument.variadic(Argument.string("query")).pipe(
-  Argument.withDescription("Query DSL, which tasks to rewrite"),
-  Argument.map((q) => Query.normalize(q, " ")),
-  Argument.map(Option.liftPredicate(String.isNonEmpty)),
-);
+const query = queryArgument({ description: "Query DSL, which tasks to rewrite" });
 
-const tags = Flag.atLeast(Flag.string("tag"), 1).pipe(
-  Flag.withAlias("t"),
-  Flag.withDescription("Tag to move, repeatable"),
-  Flag.map(Array.map((tag) => tag.trim().toLowerCase())),
-);
+const tags = tagFlag({ description: "Tag to move, repeatable" });
 
-const status = Flag.choice("status", ["open", "closed", "all"]).pipe(
-  Flag.withAlias("s"),
-  Flag.withDescription("Which tasks to rewrite, by their 'closed' front matter"),
-  Flag.optional,
+const status = Flag.optional(
+  statusFlag({ description: "Which tasks to rewrite, by their 'closed' front matter" }),
 );
 
 interface Rewrite {

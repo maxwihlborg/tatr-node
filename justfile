@@ -16,8 +16,8 @@ install:
 build:
     pnpm exec turbo run build
 
-pull-request: format-tasks
-    pnpm exec turbo run format lint build
+pull-request: format
+    pnpm exec turbo run lint build
     pnpm exec vitest --run
 
 format-tasks:

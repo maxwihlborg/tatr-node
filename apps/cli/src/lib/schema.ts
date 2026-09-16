@@ -14,7 +14,7 @@ const ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 const BITS_PER_CHAR = 5;
 
 export const fromYamlStringTransform = SchemaTransformation.make<unknown, string>({
-  decode: SchemaGetter.transformOrFail((text, options) =>
+  decode: SchemaGetter.transformEffect((text, options) =>
     Effect.try({
       catch: () =>
         new SchemaIssue.InvalidValue({ message: "could not be parsed as yaml" }, text, options),
@@ -32,7 +32,7 @@ export function normalizeCrock32(text: string) {
 }
 
 export const fromCrock32Transform = SchemaTransformation.make<Uint8Array, string>({
-  decode: SchemaGetter.transformOrFail((text, options) => {
+  decode: SchemaGetter.transformEffect((text, options) => {
     const out = new Uint8Array(Math.floor((text.length * BITS_PER_CHAR) / 8));
     const normalized = normalizeCrock32(text);
     let buffer = 0;

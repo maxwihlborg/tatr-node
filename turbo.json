@@ -9,7 +9,8 @@
       "cache": false
     },
     "lint": {
-      "cache": false
+      "outputLogs": "hash-only",
+      "outputs": []
     }
   }
 }

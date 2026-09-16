@@ -4,7 +4,7 @@ import { Mint } from "../services/index.js";
 
 export const mintId = pipe(
   Command.make("mint", {
-    created: Flag.string("created").pipe(
+    created: Flag.String("created").pipe(
       Flag.withDescription("Mint the id as of this date instead of now"),
       Flag.withSchema(Schema.DateTimeUtcFromString),
       Flag.withDefault(DateTime.now),

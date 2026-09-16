@@ -10,7 +10,7 @@ import {
   Option,
   Stream,
   Struct,
-  SchemaError,
+  Schema,
   PlatformError,
 } from "effect";
 import * as FileSystem from "effect/FileSystem";
@@ -43,7 +43,7 @@ export class TaskIdError extends Data.TaggedError("TaskIdError")<{
 }
 
 export type TaskParseErrorReason = Data.TaggedEnum<{
-  YamlParseError: { cause: SchemaError.SchemaError };
+  YamlParseError: { cause: Schema.SchemaError };
   PlatformError: { cause: PlatformError.PlatformError };
   Invalid: { message: string };
 }>;
@@ -59,6 +59,17 @@ export class TaskParseError extends Data.TaggedError("TaskParseError")<{
       YamlParseError: (reason) => reason.cause.message,
       PlatformError: (reason) => reason.cause.message,
     })}`;
+  }
+}
+
+/** The write side of `TaskParseError`: front matter that will not encode, which
+ * is a task the caller described wrongly rather than a file that is wrong. */
+export class TaskWriteError extends Data.TaggedError("TaskWriteError")<{
+  file: string;
+  cause: Schema.SchemaError;
+}> {
+  override get message() {
+    return `${this.file}: ${this.cause.message}`;
   }
 }
 
@@ -352,25 +363,28 @@ export class AppService extends Context.Service<AppService>()("@tatr/cli/AppServ
       );
     }
 
-    function formatTask(task: TaskFields) {
-      return Effect.map(
+    function formatTask(file: string, task: TaskFields) {
+      return Effect.mapBoth(
         TaskInfo.encodeYaml({
           title: task.title,
           priority: Option.getOrElse(task.priority, () => 50),
           closed: false,
           tags: Option.getOrElse(task.tags, () => []),
         }),
-        (matter) =>
-          [
-            "---",
-            matter.trimEnd(),
-            "---",
-            ...Option.match(task.body, {
-              onNone: () => [],
-              onSome: (body) => ["", body.trim(), ""],
-            }),
-            "\n",
-          ].join("\n"),
+        {
+          onFailure: (cause) => new TaskWriteError({ file, cause }),
+          onSuccess: (matter) =>
+            [
+              "---",
+              matter.trimEnd(),
+              "---",
+              ...Option.match(task.body, {
+                onNone: () => [],
+                onSome: (body) => ["", body.trim(), ""],
+              }),
+              "\n",
+            ].join("\n"),
+        },
       );
     }
 
@@ -383,7 +397,7 @@ export class AppService extends Context.Service<AppService>()("@tatr/cli/AppServ
 
       yield* Effect.when(Effect.fail(new TaskAlreadyExistError({ id })), fs.exists(filePath));
 
-      yield* formatTask(task).pipe(
+      yield* formatTask(filePath, task).pipe(
         Effect.flatMap((text) => formatter.format(context, filePath, text)),
         Effect.flatMap((text) => fs.writeFileString(filePath, text)),
       );
@@ -404,7 +418,10 @@ export class AppService extends Context.Service<AppService>()("@tatr/cli/AppServ
       const next = update(yield* parseFullTask(file));
 
       yield* TaskInfo.encodeYaml(next.info).pipe(
-        Effect.map((matter) => ["---", matter.trimEnd(), "---", next.body].join("\n")),
+        Effect.mapBoth({
+          onFailure: (cause) => new TaskWriteError({ file, cause }),
+          onSuccess: (matter) => ["---", matter.trimEnd(), "---", next.body].join("\n"),
+        }),
         Effect.flatMap((text) => formatter.format(context, file, text)),
         Effect.flatMap((text) => fs.writeFileString(file, text)),
       );

@@ -5,9 +5,7 @@
     "lib": ["ES2025"],
     "types": ["node"],
     "verbatimModuleSyntax": true,
-    "composite": true,
-    "noEmit": true,
-    "tsBuildInfoFile": "./node_modules/.cache/tsconfig.scripts.tsbuildinfo"
+    "noEmit": true
   },
   "include": ["scripts"]
 }

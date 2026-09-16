@@ -137,7 +137,7 @@ function M.path(opts, cb)
 end
 
 --- `tatr close <id>`: mark the task closed, answer with what the cli said.
---- The only synchronous call here: fzf reloads its list the moment the action
+--- The only synchronous call here: the picker restarts as soon as the action
 --- returns, so the write has to have landed by then.
 ---@param opts { cmd: string[], id: string }
 ---@return string? line, string? err

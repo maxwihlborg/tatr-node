@@ -1,6 +1,6 @@
 import { Array, Console, Effect, Layer, Option, pipe, Schema, Stream, String } from "effect";
 import { Stdio } from "effect/Stdio";
-import { Argument, Command, Flag } from "effect/unstable/cli";
+import { Command, Flag } from "effect/unstable/cli";
 import {
   AppService,
   FileUtils,
@@ -10,6 +10,7 @@ import {
   Query,
   ConfigService,
 } from "../services/index.js";
+import { formatFlag, queryArgument, statusFlag } from "../common/flags.js";
 import { shortestUniqueSuffixes } from "../lib/abbrev.js";
 import { unreachable } from "../lib/functions.js";
 import { Task } from "../schema.js";
@@ -22,31 +23,26 @@ const ListLayer = Layer.mergeAll(AppService.layer, Printer.layer, Fzf.layer).pip
 
 export const listTasks = pipe(
   Command.make("ls", {
-    query: Argument.variadic(Argument.string("query")).pipe(
-      Argument.withDescription("Query DSL"),
-      Argument.map((q) => Query.normalize(q, " ")),
-      Argument.map(Option.liftPredicate(String.isNonEmpty)),
-    ),
-    interactive: Flag.boolean("fzf"),
-    color: Flag.boolean("color").pipe(
+    query: queryArgument({ description: "Query DSL" }),
+    interactive: Flag.Boolean("fzf").pipe(Flag.withDefault(false)),
+    color: Flag.Boolean("color").pipe(
       Flag.withDescription("Colourise the output, --no-color to disable"),
+      Flag.withDefault(false),
     ),
-    format: Flag.choice("format", ["json", "vimgrep", "filepath"]).pipe(
-      Flag.withAlias("f"),
-      Flag.withDescription("Output format"),
-      Flag.optional,
+    format: formatFlag({ values: ["pretty", "json", "vimgrep", "filepath"] }),
+    status: Flag.withDefault(
+      statusFlag({
+        description: "Which tasks to list, by their 'closed' front matter",
+      }),
+      "open",
     ),
-    status: Flag.choice("status", ["open", "closed", "all"]).pipe(
-      Flag.withAlias("s"),
-      Flag.withDescription("Which tasks to list, by their 'closed' front matter"),
-      Flag.withDefault("open"),
-    ),
-    all: Flag.boolean("all").pipe(
+    all: Flag.Boolean("all").pipe(
       Flag.withAlias("a"),
       Flag.withDescription("Closed tasks too, the same as --status all"),
+      Flag.withDefault(false),
     ),
-    sort: Flag.boolean("sort").pipe(Flag.withDefault(true)),
-    order: Flag.atLeast(Flag.string("order"), 1).pipe(
+    sort: Flag.Boolean("sort").pipe(Flag.withDefault(true)),
+    order: Flag.atLeast(Flag.String("order"), 1).pipe(
       Flag.withAlias("o"),
       Flag.withDescription("How to order the tasks, defaults to the config's 'order'"),
       Flag.optional,
@@ -103,46 +99,46 @@ export const listTasks = pipe(
         );
       }
 
-      if (Option.isSome(format)) {
-        switch (format.value) {
-          case "json": {
-            return yield* pipe(
-              Stream.runCollect(program),
-              Effect.flatMap(Schema.encodeEffect(Schema.toCodecJson(Schema.Array(Task)))),
-              Effect.flatMap((tasks) => Console.log(JSON.stringify(tasks))),
-            );
-          }
-          case "vimgrep": {
-            return yield* pipe(
-              program,
-              // relative to where the command ran, which is what an editor's
-              // :grep expects to be able to jump from
-              Stream.map((info) => `${printer.vimgrep(process.cwd(), info)}\n`),
-              Stream.run(stdio.stdout({ endOnDone: true })),
-            );
-          }
-          case "filepath": {
-            return yield* pipe(
-              program,
-              Stream.map((info) => `${info.file}\n`),
-              Stream.run(stdio.stdout({ endOnDone: true })),
-            );
-          }
-          default: {
-            unreachable(format.value);
-          }
+      switch (format) {
+        case "pretty": {
+          // Over every id in the dir, not just the listed ones: an abbreviation
+          // the query happened to filter out of view still has to reach its own
+          // task.
+          const unique = shortestUniqueSuffixes(yield* app.listTaskIdsIn(taskDir));
+
+          return yield* pipe(
+            program,
+            Stream.map((info) => `${printer.showTask(info, unique.get(info.id))}\n`),
+            Stream.run(stdio.stdout({ endOnDone: true })),
+          );
+        }
+        case "json": {
+          return yield* pipe(
+            Stream.runCollect(program),
+            Effect.flatMap(Schema.encodeEffect(Schema.toCodecJson(Schema.Array(Task)))),
+            Effect.flatMap((tasks) => Console.log(JSON.stringify(tasks))),
+          );
+        }
+        case "vimgrep": {
+          return yield* pipe(
+            program,
+            // relative to where the command ran, which is what an editor's
+            // :grep expects to be able to jump from
+            Stream.map((info) => `${printer.vimgrep(process.cwd(), info)}\n`),
+            Stream.run(stdio.stdout({ endOnDone: true })),
+          );
+        }
+        case "filepath": {
+          return yield* pipe(
+            program,
+            Stream.map((info) => `${info.file}\n`),
+            Stream.run(stdio.stdout({ endOnDone: true })),
+          );
+        }
+        default: {
+          unreachable(format);
         }
       }
-
-      // Over every id in the dir, not just the listed ones: an abbreviation the
-      // query happened to filter out of view still has to reach its own task.
-      const unique = shortestUniqueSuffixes(yield* app.listTaskIdsIn(taskDir));
-
-      yield* pipe(
-        program,
-        Stream.map((info) => `${printer.showTask(info, unique.get(info.id))}\n`),
-        Stream.run(stdio.stdout({ endOnDone: true })),
-      );
     }),
   ),
   Command.provide(ListLayer),

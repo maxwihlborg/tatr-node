@@ -1,5 +1,6 @@
 import { Effect, Layer, pipe } from "effect";
-import { Argument, Command } from "effect/unstable/cli";
+import { Command } from "effect/unstable/cli";
+import { idArgument } from "../common/flags.js";
 import { AppService, ConfigService, Editor, FileUtils, Formatter } from "../services/index.js";
 
 const OpenLayer = Layer.mergeAll(AppService.layer, Editor.layer).pipe(
@@ -10,9 +11,7 @@ const OpenLayer = Layer.mergeAll(AppService.layer, Editor.layer).pipe(
 
 export const openTask = pipe(
   Command.make("open", {
-    id: Argument.string("id").pipe(
-      Argument.withDescription("Id of the task"), //
-    ),
+    id: idArgument,
   }),
   Command.withDescription("Open a task in $VISUAL or $EDITOR"),
   Command.withHandler(

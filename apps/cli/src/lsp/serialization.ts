@@ -32,12 +32,15 @@ function indexOfTerminator(buffer: Uint8Array) {
 export function lspRpcSerialization(): RpcSerialization.RpcSerialization["Service"] {
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
+  const jsonRpc = RpcSerialization.jsonRpc();
 
   return RpcSerialization.RpcSerialization.of({
     contentType: "application/vscode-jsonrpc; charset=utf-8",
     includesFraming: true,
+    // the message shapes are jsonRpc's, so the schema codec is too
+    codecFor: jsonRpc.codecFor,
     makeUnsafe: () => {
-      const messages = RpcSerialization.jsonRpc().makeUnsafe();
+      const messages = jsonRpc.makeUnsafe();
       let buffer = new Uint8Array(0);
 
       return {

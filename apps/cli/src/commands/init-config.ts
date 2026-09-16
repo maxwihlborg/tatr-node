@@ -6,12 +6,13 @@ const InitLayer = ConfigService.layer.pipe(Layer.provide(FileUtils.layer));
 
 export const initConfig = pipe(
   Command.make("init", {
-    taskDir: Flag.string("task-dir").pipe(
+    taskDir: Flag.String("task-dir").pipe(
       Flag.withDescription("Where to store tasks, relative to the config file"),
       Flag.withDefault("./tasks"),
     ),
-    force: Flag.boolean("force").pipe(
-      Flag.withDescription(`Overwrite an existing config`), //
+    force: Flag.Boolean("force").pipe(
+      Flag.withDescription(`Overwrite an existing config`),
+      Flag.withDefault(false),
     ),
   }),
   Command.withDescription("Create a tatr.config.yaml in the repo"),

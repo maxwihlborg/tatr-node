@@ -461,7 +461,7 @@ export const LanguageServerRpcHandlers = LanguageServerRpcGroup.toLayer(
           const text = yield* formatter.format(
             context,
             taskFile,
-            yield* app.formatTask({
+            yield* app.formatTask(taskFile, {
               title: marker.value.title.length > 0 ? marker.value.title : id,
               tags: app.taggedFor(
                 context,

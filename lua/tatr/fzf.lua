@@ -114,10 +114,12 @@ local function copy(selected)
   })
 end
 
---- Close the task under the cursor, reporting whatever the cli said about it.
+--- Close the task under the cursor, reporting whatever the cli said about it,
+--- then restart the picker so the list reflects the write.
 ---@param cfg TatrConfig
+---@param opts TatrConfig|{ query: string[] }|nil what M.pick was called with
 ---@return fun(selected: string[])
-local function close(cfg)
+local function close(cfg, opts)
   return function(selected)
     local id = id_of(selected[1])
     if not id then
@@ -130,6 +132,10 @@ local function close(cfg)
     end
 
     vim.notify(line, vim.log.levels.INFO, { title = "tatr" })
+
+    M.pick(vim.tbl_deep_extend("force", opts or {}, {
+      query = { fzf.get_last_query() or "" },
+    }))
   end
 end
 
@@ -159,9 +165,10 @@ function M.pick(opts)
   end
 
   if cfg.fzf.close then
-    -- reload: fzf re-runs the list command with the query as it stands, so the
-    -- task leaves an `--status=open` list without the picker going away
-    actions[cfg.fzf.close] = { fn = close(cfg), reload = true }
+    -- reuse, and a restart from close() itself, rather than fzf's own `reload`
+    -- bind: the live picker already owns `start:+reload` and `change:+reload`,
+    -- and a third reload from the action did not take
+    actions[cfg.fzf.close] = { fn = close(cfg, opts), reuse = true }
   end
 
   if cfg.fzf.cycle then

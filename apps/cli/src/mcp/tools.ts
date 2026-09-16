@@ -11,6 +11,7 @@ import {
   Query,
   type TatrContext,
 } from "../services/index.js";
+import { TaskTag } from "../schema.js";
 import { TaskDetail, TaskSummary, TaskToolError } from "./schema.js";
 
 /**
@@ -164,10 +165,10 @@ export const CreateTask = Tool.make("create_task", {
       description: "The one line the task is known by",
     }),
     cwd: Schema.OptionFromOptionalKey(Cwd),
-    tags: Schema.Array(Schema.String).pipe(
+    tags: Schema.Array(TaskTag).pipe(
       Schema.optionalKey,
       Schema.annotate({
-        description: "Tags of the task, lowercased when it is read back",
+        description: "Tags of the task, lowercased as they are written",
       }),
     ),
     priority: Schema.Int.pipe(
@@ -272,7 +273,7 @@ export const UpdateTask = Tool.make("update_task", {
       Schema.optionalKey,
       Schema.annotate({ description: "Priority of the task, a higher one is more important" }),
     ),
-    tags: Schema.Array(Schema.String).pipe(
+    tags: Schema.Array(TaskTag).pipe(
       Schema.optionalKey,
       Schema.annotate({
         description:

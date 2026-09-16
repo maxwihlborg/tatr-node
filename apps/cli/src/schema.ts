@@ -1,8 +1,16 @@
 import { Effect, Schema, SchemaTransformation } from "effect";
 import { fromYamlString, omitDefault, toCommaSeparated } from "./lib/schema";
 
+/** The same charset the query DSL reads after its `.` or `:`, so a tag that
+ * lands here is one a query can name. Checked past the trim and the lowercase,
+ * which is why casing and padding still pass. */
 export const TaskTag = Schema.String.pipe(
   Schema.decodeTo(Schema.Trim, SchemaTransformation.toLowerCase()),
+  Schema.check(
+    Schema.isPattern(/^[a-z0-9_-]+$/, {
+      expected: "a tag of a-z, 0-9, '-' and '_'",
+    }),
+  ),
 );
 
 export const TaskTagArray = toCommaSeparated(TaskTag);

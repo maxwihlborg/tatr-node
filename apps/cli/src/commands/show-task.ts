@@ -1,5 +1,6 @@
 import { Console, Effect, Layer, pipe } from "effect";
-import { Argument, Command, Flag } from "effect/unstable/cli";
+import { Command } from "effect/unstable/cli";
+import { formatFlag, idArgument } from "../common/flags.js";
 import { unreachable } from "../lib/functions";
 import { AppService, ConfigService, FileUtils, Formatter, Printer } from "../services";
 
@@ -11,14 +12,8 @@ const ShowLayer = Layer.mergeAll(AppService.layer, Printer.layer).pipe(
 
 export const showTask = pipe(
   Command.make("show", {
-    id: Argument.string("id").pipe(
-      Argument.withDescription("Id of the task"), //
-    ),
-    format: Flag.choice("format", ["body", "json", "agent", "filepath"]).pipe(
-      Flag.withAlias("f"),
-      Flag.withDescription("Output format"),
-      Flag.withDefault("body"),
-    ),
+    id: idArgument,
+    format: formatFlag({ values: ["body", "json", "agent", "filepath"] }),
   }),
   Command.withDescription("Print the body of a task, front matter stripped"),
   Command.withHandler(

@@ -1,5 +1,7 @@
 import { Console, Effect, Layer, Option, pipe, Stdio, Stream, String } from "effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
+import { formatFlag, tagFlag } from "../common/flags.js";
+import { unreachable } from "../lib/functions.js";
 import {
   AppService,
   ConfigService,
@@ -8,7 +10,6 @@ import {
   Formatter,
   Mint,
 } from "../services/index.js";
-import { unreachable } from "../lib/functions.js";
 
 const NewLayer = Layer.mergeAll(AppService.layer, Editor.layer, Mint.layer).pipe(
   Layer.provide(Formatter.layer),
@@ -18,44 +19,40 @@ const NewLayer = Layer.mergeAll(AppService.layer, Editor.layer, Mint.layer).pipe
 
 export const newTask = pipe(
   Command.make("new", {
-    title: Argument.atLeast(Argument.string("title"), 1).pipe(
+    title: Argument.atLeast(Argument.String("title"), 1).pipe(
       Argument.withDescription("Title of the task"),
       Argument.map((words) => words.join(" ")),
     ),
-    tags: Flag.atLeast(Flag.string("tag"), 1).pipe(
-      Flag.withAlias("t"),
-      Flag.withDescription("Tag the task, repeatable"),
-      Flag.optional,
-    ),
-    priority: Flag.integer("priority").pipe(
+    tags: Flag.optional(tagFlag({ description: "Tag the task, repeatable" })),
+    priority: Flag.Int("priority").pipe(
       Flag.withAlias("p"),
       Flag.withDescription("Priority of the task"),
       Flag.optional,
     ),
-    id: Flag.string("id").pipe(
+    id: Flag.String("id").pipe(
       Flag.withDescription("Id of the task"), //
       Flag.optional,
     ),
-    body: Flag.string("body").pipe(
+    body: Flag.String("body").pipe(
       Flag.withAlias("b"),
       Flag.withDescription("Body of the task"),
       Flag.optional,
     ),
-    fromStdin: Flag.boolean("stdin").pipe(
+    fromStdin: Flag.Boolean("stdin").pipe(
       Flag.withDescription("Read the body from stdin"),
+      Flag.withDefault(false),
     ),
-    files: Flag.atLeast(Flag.string("file"), 1).pipe(
+    files: Flag.atLeast(Flag.String("file"), 1).pipe(
       Flag.withDescription("A file the task came out of, for autoTags, repeatable"),
       Flag.optional,
     ),
-    format: Flag.choice("format", ["filename", "id"]).pipe(
-      Flag.withAlias("f"),
-      Flag.withDescription("What to print for the created task"),
-      Flag.withDefault("filename"),
+    format: formatFlag({ values: ["id", "filename"] }).pipe(
+      Flag.withDescription("What to print for the created task"), //
     ),
-    open: Flag.boolean("open").pipe(
+    open: Flag.Boolean("open").pipe(
       Flag.withAlias("o"),
       Flag.withDescription("Open the task in $VISUAL or $EDITOR once it is written"),
+      Flag.withDefault(false),
     ),
   }),
   Command.withDescription("Create a task in the repo"),
@@ -91,7 +88,11 @@ export const newTask = pipe(
         yield* Effect.catch(Effect.fromOption(id), () => mint.nextId),
         {
           title,
-          tags: app.taggedFor(context, Option.getOrElse(files, () => []), tags),
+          tags: app.taggedFor(
+            context,
+            Option.getOrElse(files, () => []),
+            tags,
+          ),
           priority,
           body: fromStdin ? Option.orElse(yield* readStdin, () => body) : body,
         },

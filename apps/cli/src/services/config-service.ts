@@ -47,6 +47,7 @@ export type ConfigErrorReason = Data.TaggedEnum<{
   Invalid: { path: string; cause: string };
   NotFound: { name: string };
   TaskDirNotFound: { path: string };
+  Unwritable: { path: string; cause: string };
 }>;
 
 export const ConfigErrorReason = Data.taggedEnum<ConfigErrorReason>();
@@ -63,6 +64,7 @@ export class ConfigError extends Data.TaggedError("ConfigError")<{
         Invalid: ({ path, cause }) => `${path} is not a valid ${CONFIG_NAME}\n\n${cause}\n`,
         AlreadyExist: ({ path }) => `${path} already exists, pass --force to overwrite it`,
         TaskDirNotFound: ({ path }) => `Task dir ${path} is not a directory, run 'tatr init' first`,
+        Unwritable: ({ path, cause }) => `${path} could not be written\n\n${cause}\n`,
       }),
     });
   }
@@ -174,7 +176,14 @@ export class ConfigService extends Context.Service<ConfigService>()("@tatr/cli/C
           order: DEFAULT_ORDER,
           markers: new Markers(DEFAULT_MARKERS),
           autoTags: new AutoTags({}),
-        }),
+        }).pipe(
+          Effect.mapError(
+            (cause) =>
+              new ConfigError(
+                ConfigErrorReason.Unwritable({ path: configPath, cause: cause.message }),
+              ),
+          ),
+        ),
       );
 
       return { configPath, taskDir };
