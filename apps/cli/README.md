@@ -75,8 +75,9 @@ vim.lsp.enable("tatr")
 resolves `tatr.config.yaml` per request, walking up from the file the request is
 about, so several projects in one session are fine.
 
-`tatr mcp` speaks MCP over stdio, so an agent can list, read, create, update,
-append to and close tasks without shelling out:
+`tatr mcp` speaks MCP over stdio, so an agent can list, read, create, update and
+close tasks without shelling out — including patching a body in place, anchored
+on text rather than on offsets a reformat would invalidate:
 
 ```json
 {

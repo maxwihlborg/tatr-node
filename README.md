@@ -329,13 +329,24 @@ out at all:
 | `list_tasks`  | filtered by `tags`, `minPriority`, `maxPriority`, `status`, `limit` |
 | `show_task`   | one task by id, front matter and body, with the files mentioning it |
 | `create_task` | `title`, with optional `tags`, `priority`, `body` and `files`       |
-| `update_task` | any of `title`, `priority`, `tags`, `body`; absent means unchanged  |
-| `append_task` | add to the end of a body without re-sending what is already there   |
+| `update_task` | any of `title`, `priority`, `tags`, `body` or `patch`               |
 | `close_task`  | one task by id, already closed is answered for as it stands         |
 
 Every tool takes a `cwd`, the directory to resolve `tatr.config.yaml` from, so
 one server answers for whatever repo the agent is working in. Without it the
 server's own working directory is used.
+
+Everything but `list_tasks` answers with the whole task, body included. A
+listing leaves bodies out because it returns many; a write hands one back
+because the formatter rewrites what was sent, and the text that landed is what
+the next patch has to anchor against.
+
+`update_task` takes either a whole `body` or a `patch`, which edits the one
+already there: `replace`, `insert_before`, `insert_after`, `prepend`, `append`
+and `replace_range`, applied in order and atomically, each anchored on text that
+has to match exactly once. Whitespace in an anchor is elastic, so a run of it
+matches a run of any length and an anchor still lands after the formatter has
+rewrapped the paragraph it came from.
 
 Ids are resolved the way the cli resolves them, abbreviations included, and an
 ambiguous one is a question rather than a failure: the server asks through MCP

@@ -1,9 +1,16 @@
-import { Array, Effect, Option, Order, Schema, Stream, Struct } from "effect";
+import { Array, Effect, Option, Order, Result, Schema, Stream, Struct } from "effect";
 import type { NonEmptyReadonlyArray } from "effect/Array";
 import { McpSchema, McpServer, Tool, Toolkit } from "effect/unstable/ai";
 import { runCollectSorted } from "../lib/functions.js";
-import type { TaskInfo, TaskWithBody } from "../schema.js";
-import { AppService, ConfigService, Expr, Mint, Query, type TatrContext } from "../services/index.js";
+import { applyPatch } from "../lib/patch.js";
+import {
+  AppService,
+  ConfigService,
+  Expr,
+  Mint,
+  Query,
+  type TatrContext,
+} from "../services/index.js";
 import { TaskDetail, TaskSummary, TaskToolError } from "./schema.js";
 
 /**
@@ -185,16 +192,75 @@ export const CreateTask = Tool.make("create_task", {
       }),
     ),
   }),
-  success: TaskSummary,
+  success: TaskDetail,
   failure: TaskToolError,
 });
+
+const Anchor = (what: string) =>
+  Schema.String.check(Schema.isMinLength(1)).annotate({
+    description:
+      `${what} Whitespace is elastic, so a run of it matches a run of any length and ` +
+      "an anchor carries across the line the formatter wrapped it at. Must match the " +
+      "current body exactly once.",
+  });
+
+const Patch = Schema.Union([
+  Schema.Struct({
+    op: Schema.Literal("replace"),
+    old_string: Anchor("Text to replace."),
+    new_string: Schema.String.annotate({
+      description: "Replacement text. Empty string deletes the match",
+    }),
+    replace_all: Schema.Boolean.pipe(
+      Schema.optionalKey,
+      Schema.annotate({
+        description: "Replace every occurrence instead of requiring a unique match",
+      }),
+    ),
+  }),
+  Schema.Struct({
+    op: Schema.Literal("insert_before"),
+    anchor: Anchor("Text to insert before."),
+    text: Schema.String.check(Schema.isMinLength(1)).annotate({
+      description:
+        "Written directly before the anchor, verbatim. Include separators, e.g. '\\n\\n'",
+    }),
+  }),
+  Schema.Struct({
+    op: Schema.Literal("insert_after"),
+    anchor: Anchor("Text to insert after."),
+    text: Schema.String.check(Schema.isMinLength(1)).annotate({
+      description: "Written directly after the anchor, verbatim. Include separators, e.g. '\\n\\n'",
+    }),
+  }),
+  Schema.Struct({
+    op: Schema.Literal("prepend"),
+    text: Schema.String.check(Schema.isMinLength(1)).annotate({
+      description: "Written at the very start of the body, verbatim. Include separators",
+    }),
+  }),
+  Schema.Struct({
+    op: Schema.Literal("append"),
+    text: Schema.String.check(Schema.isMinLength(1)).annotate({
+      description: "Written at the very end of the body, verbatim. Include separators",
+    }),
+  }),
+  Schema.Struct({
+    op: Schema.Literal("replace_range"),
+    from: Anchor("Text the range starts at, inclusive."),
+    to: Anchor("Text the range ends at, exclusive — it stays where it is. Matched after 'from'."),
+    new_string: Schema.String.annotate({
+      description: "Text replacing the range. Empty string deletes it",
+    }),
+  }),
+]);
 
 export const UpdateTask = Tool.make("update_task", {
   description:
     "Change a task of a tatr repo that already exists. Every field but the id is " +
-    "optional and an absent one is left as it is. 'body' replaces the whole body, " +
-    "so use 'append_task' to add to one rather than re-sending what is not changing. " +
-    "Closing a task is 'close_task', not this.",
+    "optional and an absent one is left as it is. 'body' replaces the whole body; " +
+    "'patch' edits it in place instead, which is what to reach for rather than " +
+    "re-sending prose that is not changing. Closing a task is 'close_task', not this.",
   parameters: Schema.Struct({
     cwd: Schema.OptionFromOptionalKey(Cwd),
     id: Id,
@@ -220,24 +286,19 @@ export const UpdateTask = Tool.make("update_task", {
         description: "Markdown body, replacing the whole of the current one",
       }),
     ),
+    patch: Schema.Array(Patch).pipe(
+      Schema.check(Schema.isLengthBetween(1, 50)),
+      Schema.optionalKey,
+      Schema.annotate({
+        description:
+          "Edits applied to the current body, in order and atomically — one failing op " +
+          "aborts the whole save. Given in place of 'body', never alongside it. Prefer " +
+          "'replace_range' for anything large: two short anchors each sit inside a line, " +
+          "where one long 'old_string' is bound to cross several",
+      }),
+    ),
   }),
-  success: TaskSummary,
-  failure: TaskToolError,
-}).addDependency(McpSchema.McpServerClient);
-
-export const AppendTask = Tool.make("append_task", {
-  description:
-    "Add to the end of a task's body, which is what writing to a task usually is: " +
-    "a measurement, what landed, a correction. Leaves everything above it untouched, " +
-    "so nothing already written has to be re-sent.",
-  parameters: Schema.Struct({
-    cwd: Schema.OptionFromOptionalKey(Cwd),
-    id: Id,
-    body: Schema.String.annotate({
-      description: "Markdown to write under what the task already says",
-    }),
-  }),
-  success: TaskSummary,
+  success: TaskDetail,
   failure: TaskToolError,
 }).addDependency(McpSchema.McpServerClient);
 
@@ -249,18 +310,11 @@ export const CloseTask = Tool.make("close_task", {
     cwd: Schema.OptionFromOptionalKey(Cwd),
     id: Id,
   }),
-  success: TaskSummary,
+  success: TaskDetail,
   failure: TaskToolError,
 }).addDependency(McpSchema.McpServerClient);
 
-export const TaskToolkit = Toolkit.make(
-  ListTasks,
-  ShowTask,
-  CreateTask,
-  UpdateTask,
-  AppendTask,
-  CloseTask,
-);
+export const TaskToolkit = Toolkit.make(ListTasks, ShowTask, CreateTask, UpdateTask, CloseTask);
 
 function toToolError(err: {
   readonly _tag: string;
@@ -286,6 +340,27 @@ export const TaskHandlers = TaskToolkit.toLayer(
     function rootDirOf(root: Option.Option<string>) {
       return config.getRootDirFromRootUri(Option.getOrElse(root, () => process.cwd()));
     }
+
+    /**
+     * A task as every tool that reads or writes one answers with it: the body
+     * included, because the formatter rewrites what was sent and the text that
+     * landed is what the next patch has to anchor against.
+     */
+    const detailOf = Effect.fnUntraced(function* (
+      cwd: Option.Option<string>,
+      id: string,
+      file: string,
+    ) {
+      const references = yield* app.referencesOf(yield* rootDirOf(cwd), id).pipe(
+        Stream.map((match) => match.file),
+        runCollectSorted(Order.String),
+        Effect.map(Array.dedupe),
+        // A repo without `rg` is still a task we can read
+        Effect.orElseSucceed(() => []),
+      );
+
+      return TaskDetail.of(yield* app.parseFullTask(file), references);
+    });
 
     /**
      * An id as the caller spelled it, which may be any suffix long enough to
@@ -333,20 +408,6 @@ export const TaskHandlers = TaskToolkit.toLayer(
       return `\n${text.trim()}\n`;
     }
 
-    /** Rewrite a task that has to already exist, and answer with what it became. */
-    const writeTask = Effect.fnUntraced(function* (
-      cwd: Option.Option<string>,
-      id: string,
-      update: (task: TaskWithBody) => { info: TaskInfo; body: string },
-    ) {
-      const context = yield* contextOf(cwd);
-      const { file } = yield* resolveTask(context, id);
-
-      yield* app.updateTask(context, file, update);
-
-      return TaskSummary.of(yield* app.readTask(context.taskDir, file));
-    });
-
     return TaskToolkit.of({
       list_tasks: Effect.fnUntraced(
         function* (params) {
@@ -375,17 +436,7 @@ export const TaskHandlers = TaskToolkit.toLayer(
         function* (params) {
           const { id, file } = yield* resolveTask(yield* contextOf(params.cwd), params.id);
 
-          const references = yield* app.referencesOf(yield* rootDirOf(params.cwd), id).pipe(
-            Stream.map((match) => match.file),
-            runCollectSorted(Order.String),
-            Effect.map(Array.dedupe),
-            // A repo without `rg` is still a task we can read
-            Effect.orElseSucceed(() => []),
-          );
-
-          const task = yield* app.parseFullTask(file);
-
-          return TaskDetail.of(task, references);
+          return yield* detailOf(params.cwd, id, file);
         },
         Effect.catch((err) => Effect.fail(toToolError(err))),
       ),
@@ -401,35 +452,49 @@ export const TaskHandlers = TaskToolkit.toLayer(
             body: Option.fromUndefinedOr(params.body),
           });
 
-          return TaskSummary.of(task);
+          return yield* detailOf(params.cwd, task.id, task.file);
         },
         Effect.catch((err) => Effect.fail(toToolError(err))),
       ),
 
       update_task: Effect.fnUntraced(
         function* (params) {
-          return yield* writeTask(params.cwd, params.id, (task) => ({
+          if (params.body !== undefined && params.patch !== undefined) {
+            return yield* new TaskToolError({
+              message: "Pass 'body' to replace the whole of it or 'patch' to edit it, not both",
+            });
+          }
+
+          const context = yield* contextOf(params.cwd);
+          const { id, file } = yield* resolveTask(context, params.id);
+          const task = yield* app.parseFullTask(file);
+
+          // The ops see the body without the blank line the front matter leaves
+          // behind, so `prepend` means what it says and every anchor lines up
+          // with what `show_task` handed over.
+          const patched =
+            params.patch === undefined ? undefined : applyPatch(task.body.trim(), params.patch);
+
+          if (patched !== undefined && Result.isFailure(patched)) {
+            return yield* new TaskToolError({ message: patched.failure.message });
+          }
+
+          yield* app.updateTask(context, file, () => ({
             info: {
               ...task.info,
               title: params.title ?? task.info.title,
               priority: params.priority ?? task.info.priority,
               tags: params.tags ?? task.info.tags,
             },
-            body: params.body === undefined ? task.body : bodyOf(params.body),
-          }));
-        },
-        Effect.catch((err) => Effect.fail(toToolError(err))),
-      ),
-
-      append_task: Effect.fnUntraced(
-        function* (params) {
-          return yield* writeTask(params.cwd, params.id, (task) => ({
-            info: task.info,
             body:
-              task.body.trim() === ""
-                ? bodyOf(params.body)
-                : `${task.body.trimEnd()}\n${bodyOf(params.body)}`,
+              patched !== undefined
+                ? bodyOf(patched.success)
+                : params.body === undefined
+                  ? task.body
+                  : bodyOf(params.body),
           }));
+
+          return yield* detailOf(params.cwd, id, file);
         },
         Effect.catch((err) => Effect.fail(toToolError(err))),
       ),
@@ -437,7 +502,7 @@ export const TaskHandlers = TaskToolkit.toLayer(
       close_task: Effect.fnUntraced(
         function* (params) {
           const context = yield* contextOf(params.cwd);
-          const { file } = yield* resolveTask(context, params.id);
+          const { id, file } = yield* resolveTask(context, params.id);
 
           const task = yield* app.parseFullTask(file);
 
@@ -451,7 +516,7 @@ export const TaskHandlers = TaskToolkit.toLayer(
             );
           }
 
-          return TaskSummary.of(yield* app.readTask(context.taskDir, file));
+          return yield* detailOf(params.cwd, id, file);
         },
         Effect.catch((err) => Effect.fail(toToolError(err))),
       ),

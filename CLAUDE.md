@@ -119,7 +119,7 @@ down. Commit subjects and the `[ID]` markers the LSP writes into source comments
 stay full ids.
 
 **An ambiguous id over MCP is a question, not a failure.** `show_task`,
-`update_task`, `append_task` and `close_task` resolve the same way the cli does,
+`update_task` and `close_task` resolve the same way the cli does,
 and on more than one match ask through `McpServer.elicit`; declining, or a client
 that cannot be asked at all, gets the candidates and their titles in the error.
 Asking needs `McpServerClient`, which no handler layer can hold because it is a
