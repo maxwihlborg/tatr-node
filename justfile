@@ -28,3 +28,9 @@ format: format-tasks
 
 test:
     pnpm exec vitest --run
+
+update-flake:
+    nix flake update --flake .
+
+update-deps:
+    pnpm dlx taze -Ir --no-github-actions
