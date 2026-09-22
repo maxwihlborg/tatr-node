@@ -1,6 +1,6 @@
 {
   "name": "tatr-node",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "description": "A command line task tracker that reads its tasks from markdown files, with a query language, an LSP and an MCP server",
   "keywords": [
     "cli",
